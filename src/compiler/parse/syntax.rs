@@ -37,8 +37,19 @@ pub enum TokenKind {
     BlockStatement,
     FuncStatement,
 
-    ReturnStatement,
+    // Control flow Statement
     BranchConditionalStatement,
+    BranchStatement,
+    SwitchStatement,
+
+    // Statement    
+    ReturnStatement,
+
+    // merge instruction
+    LoopMergeStatement,
+    SelectionMergeStatement,
+
+    // Expression
     LabelExpr,
     ConstantExpr,
     LoadExpr,
@@ -49,7 +60,8 @@ pub enum TokenKind {
     GreaterEqualThanExpr,
     LessThanExpr,
     LessThanEqualExpr,
-    
+    AtomicExchangeExpr,
+    AtomicCompareExchangeExpr,
 
     Root,
     Statement,
@@ -59,8 +71,8 @@ pub enum TokenKind {
     OpLabel,
     #[regex("OpReturn")]
     OpReturn,
-    #[regex("OpBranchConditional")]
-    OpBranchConditional,
+    #[regex("OpKill")]
+    OpKill,
     #[regex("OpLoad")]
     OpLoad,
     #[regex("OpStore")]
@@ -81,6 +93,24 @@ pub enum TokenKind {
     OpSGreaterThanEqual,
     #[regex("Aligned")]
     Aligned,
+    #[regex("OpBranch")]
+    OpBranch,
+    #[regex("OpBranchConditional")]
+    OpBranchConditional,
+    #[regex("OpSwitch")]
+    OpSwitch,
+    #[regex("OpLoopMerge")]
+    OpLoopMerge,
+    #[regex("OpSelectionMerge")]
+    OpSelectionMerge,
+    #[regex("OpAtomicExchange")]
+    OpAtomicExchange,
+    #[regex("OpAtomicCompareExchange")]
+    OpAtomicCompareExchange,
+    #[regex("OpGroupAll")]
+    OpGroupAll,
+    
+
 
     #[regex("-- .*")]
     Comment,

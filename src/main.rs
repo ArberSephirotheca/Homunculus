@@ -1,4 +1,5 @@
 mod compiler;
+mod codegen;
 use compiler::parse::parser::parse;
 use compiler::ast::ast;
 use std::io::{self, Write};

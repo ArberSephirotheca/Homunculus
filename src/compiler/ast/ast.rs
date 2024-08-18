@@ -20,6 +20,46 @@ pub struct IfStatement(SyntaxNode);
 pub struct BlockStatement(SyntaxNode);
 #[derive(Debug)]
 pub struct FuncStatement(SyntaxNode);
+
+#[derive(Debug)]
+pub struct LabelExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct LoadExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct StoreExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct ConstExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct EqualExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct NotEqualExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct LessThanExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct GreaterThanExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct LessThanEqualExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct GreaterThanEqualExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct AtomicExchangeExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct AtomicCompareExchangeExpr(SyntaxNode);
+
+
+#[derive(Debug)]
+pub struct ReturnStatement(SyntaxNode);
+#[derive(Debug)]
+pub struct BranchConditionalStatement(SyntaxNode);
+#[derive(Debug)]
+pub struct BranchStatement(SyntaxNode);
+#[derive(Debug)]
+pub struct SwitchStatement(SyntaxNode);
+#[derive(Debug)]
+pub struct LoopMergeStatement(SyntaxNode);
+#[derive(Debug)]
+pub struct SelectionMergeStatement(SyntaxNode);
+
 #[derive(Debug)]
 pub enum Expr {
     BinaryExpr(BinaryExpr),
@@ -27,6 +67,19 @@ pub enum Expr {
     ParenExpr(ParenExpr),
     UnaryExpr(UnaryExpr),
     VariableRef(VariableRef),
+
+    LabelExpr(LabelExpr),
+    LoadExpr(LoadExpr),
+    StoreExpr(StoreExpr),
+    ConstExpr(ConstExpr),
+    EqualExpr(EqualExpr),
+    NotEqualExpr(NotEqualExpr),
+    LessThanExpr(LessThanExpr),
+    GreaterThanExpr(GreaterThanExpr),
+    LessThanEqualExpr(LessThanEqualExpr),
+    GreaterThanEqualExpr(GreaterThanEqualExpr),
+    AtomicExchangeExpr(AtomicExchangeExpr),
+    AtomicCompareExchangeExpr(AtomicCompareExchangeExpr),
 }
 
 #[derive(Debug)]
@@ -35,7 +88,14 @@ pub enum Stmt {
     IfStatement(IfStatement),
     BlockStatement(BlockStatement),
     FuncStatement(FuncStatement),
+    ReturnStatement(ReturnStatement),
+    BranchConditionalStatement(BranchConditionalStatement),
+    BranchStatement(BranchStatement),
+    SwitchStatement(SwitchStatement),
+    LoopMergeStatement(LoopMergeStatement),
+    SelectionMergeStatement(SelectionMergeStatement),
     Expr(Expr),
+
 }
 
 impl Expr {
@@ -45,6 +105,11 @@ impl Expr {
             TokenKind::Literal => Some(Self::Literal(Literal(node))),
             TokenKind::ParenExpr => Some(Self::ParenExpr(ParenExpr(node))),
             TokenKind::VariableRef => Some(Self::VariableRef(VariableRef(node))),
+            TokenKind::OpLabel => Some(Self::LabelExpr(LabelExpr(node))),
+            TokenKind::OpLoad => Some(Self::LoadExpr(LoadExpr(node))),
+            TokenKind::OpStore => Some(Self::StoreExpr(StoreExpr(node))),
+            TokenKind::OpConstant => Some(Self::ConstExpr(ConstExpr(node))),
+            TokenKind::OpIEqual => Some(Self::EqualExpr(EqualExpr(node))),
             _ => None,
         }
     }
@@ -57,6 +122,9 @@ impl Stmt {
             TokenKind::IfStatement => todo!(),
             TokenKind::BlockStatement => todo!(),
             TokenKind::FuncStatement => todo!(),
+            TokenKind::OpReturn | TokenKind::OpKill => Some(Self::ReturnStatement(ReturnStatement(node))),
+            TokenKind::BranchConditionalStatement => Some(Self::BranchConditionalStatement(BranchConditionalStatement(node))),
+            TokenKind::BranchStatement => Some(Self::BranchStatement(BranchStatement(node))),
             _ => Some(Self::Expr(Expr::cast(node)?)),
         }
     }

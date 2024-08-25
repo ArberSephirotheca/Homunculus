@@ -1,4 +1,4 @@
-use logos::Logos;
+use logos::{Logos, Filter};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::fmt;
@@ -20,7 +20,60 @@ pub(crate) type SyntaxNode = rowan::SyntaxNode<AsukaLanguage>;
 pub(crate) type SyntaxToken = rowan::SyntaxToken<AsukaLanguage>;
 pub(crate) type SyntaxElement = rowan::SyntaxElement<AsukaLanguage>;
 
+
+#[derive(Debug, PartialEq, Clone, Default)]
+pub enum LexingError {
+    OpUnsupported(String),
+    #[default]
+    Other,
+}
+
+// impl From<std::string::ParseError> for LexingError {
+//     fn from(_: std::string::ParseError) -> Self {
+//         LexingError::OpUnsupported
+//     }
+// }
+
+pub enum BuiltInVariable {
+    WorkgroupSize,
+    // todo
+}
+
+
+const INSTRUCTION_SET : [&'static str; 19] = [
+    "OpLabel",
+    "OpReturn",
+    "OpKill",
+    "OpLoad",
+    "OpStore",
+    "OpConstant",
+    "OpIEqual",
+    "OpINotEqual",
+    "OpSLessThan",
+    "OpSGreaterThan",
+    "OpSLessThanEqual",
+    "OpSGreaterThanEqual",
+    "OpBranch",
+    "OpBranchConditional",
+    //"OpSwitch",
+    "OpLoopMerge",
+    "OpSelectionMerge",
+    "OpAtomicExchange",
+    "OpAtomicCompareExchange",
+    "OpGroupAll",
+];
+
+fn instruction_not_supported(instruction: &str) -> bool {
+    for i in INSTRUCTION_SET.iter() {
+        if i == &instruction {
+            return false;
+        }
+    }
+    true
+}
+
 #[derive(Debug, Hash, Eq, PartialOrd, Ord, Copy, Clone, PartialEq, Logos, FromPrimitive, ToPrimitive)]
+#[logos(error = LexingError)]
 pub enum TokenKind {
     // unused
     BinaryExpr,
@@ -110,6 +163,16 @@ pub enum TokenKind {
     #[regex("OpGroupAll")]
     OpGroupAll,
     
+    // #[regex("Op[A-Za-z]*", |lex|
+    //     let inst = lex.slice();
+    //     if instruction_not_supported(inst) {
+    //         Filter::Emit(())
+    //     } else{
+    //         Filter::Skip
+    //     }
+    // )]
+    // OpUnsupported,
+    
 
 
     #[regex("-- .*")]
@@ -126,34 +189,6 @@ pub enum TokenKind {
     String,
     #[regex("float|uint|bool|void")]
     Type,
-
-    // Keywords
-    #[token("and")]
-    And,
-    #[token("or")]
-    Or,
-    #[token("let")]
-    Let,
-    #[token("if")]
-    If,
-    #[token("else")]
-    Else,
-    #[token("for")]
-    For,
-    #[token("while")]
-    While,
-    #[token("func")]
-    Function,
-    #[token("exist")]
-    Exist,
-    #[token("in")]
-    In,
-    #[token("insert")]
-    Insert,
-    #[token("value")]
-    Value,
-    #[token("where")]
-    Where,
 
     // Single-character tokens.
     #[regex("[ ]+")]
@@ -219,8 +254,6 @@ impl fmt::Display for TokenKind {
         f.write_str(match self {
             Self::Whitespace => "whitespace",
             Self::Newline => "newline",
-            Self::Function => "‘fn’",
-            Self::Let => "‘let’",
             Self::Ident => "identifier",
             Self::Int => "int",
             Self::Float => "float",
@@ -238,8 +271,6 @@ impl fmt::Display for TokenKind {
             Self::LeftSquare => "‘[‘",
             Self::RightSquare => "‘]‘",
             Self::Comment => "‘comment‘",
-            Self::And => "‘and‘",
-            Self::Or => "‘or‘",
             Self::Comma => "‘,‘",
             Self::Dot => "‘.‘",
             Self::SemiColon => "‘;‘",
@@ -284,45 +315,9 @@ mod test {
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpConstant));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Type));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
-    }
-    #[test]
-    fn test_expr() {
-        let input = "1+2*3-4";
-        let mut lexer = TokenKind::lexer(input);
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Plus));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Star));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Minus));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
-    }
-    #[test]
-    fn test_func() {
-        let input = "func main(){
-            let a = 5;
-        }";
-        let mut lexer = TokenKind::lexer(input);
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Function));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::LeftParen));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::RightParen));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::LeftBrace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Let));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::SemiColon));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::RightBrace));
     }
 }

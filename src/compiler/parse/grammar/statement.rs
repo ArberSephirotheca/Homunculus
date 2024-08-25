@@ -8,12 +8,6 @@ use crate::compiler::parse::{
 pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
     if p.at(TokenKind::Percent) {
         Some(variable_def(p))
-    } else if p.at(TokenKind::If) {
-        Some(if_statement(p))
-    } else if p.at(TokenKind::LeftBrace) {
-        Some(block_statement(p))
-    } else if p.at(TokenKind::Function) {
-        Some(func_statement(p))
     } else if p.at(TokenKind::OpLabel){
         Some(op_label_expr(p))
     } else if p.at(TokenKind::OpConstant){
@@ -36,6 +30,10 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
         Some(op_less_than_expr(p))
     } else if p.at(TokenKind::OpSLessThanEqual){
         Some(op_less_than_equal_expr(p))
+    } else if p.at(TokenKind::OpAtomicExchange){
+        Some(op_atomic_exchange_expr(p))
+    } else if p.at(TokenKind::OpAtomicCompareExchange){
+        Some(op_atomic_compare_exchange_expr(p))
     } else if p.at(TokenKind::OpBranch){
         Some(op_branch_statement(p))
     } else if p.at(TokenKind::OpBranchConditional){
@@ -236,7 +234,7 @@ fn op_branch_statement(p: &mut Parser) -> CompletedMarker{
     m.complete(p, TokenKind::BranchStatement)
 }
 
-
+// fixme: implement switch statement
 fn op_switch_statement(p: &mut Parser) -> CompletedMarker{
     todo!()
 }
@@ -267,66 +265,66 @@ fn op_selection_merge_statement(p: &mut Parser) -> CompletedMarker{
     m.complete(p, TokenKind::SelectionMergeStatement)
 }
 
-/// example: OpAtomicCompareExchange %uint %ptr %value %value %scope %scope
+/// example: OpAtomicCompareExchange %uint %result %result_ptr 1 0 $value
 fn op_atomic_exchange_expr(p: &mut Parser) -> CompletedMarker{
-    todo!()
+    let m = p.start();
+    // skip OpAtomicExchange token
+    p.bump();
+    p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Type);
+
+    p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+
+    p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+
+    p.expect(TokenKind::Int);
+
+    p.expect(TokenKind::Int);
+
+    p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+
+    m.complete(p, TokenKind::AtomicExchangeExpr)
 }
 
-/// example: OpAtomicCompareExchange %uint %ptr %value %value %value %scope %scope
+/// example: OpAtomicCompareExchange %uint %result %ptr 1 0 0 %value %comp
 fn op_atomic_compare_exchange_expr(p: &mut Parser) -> CompletedMarker{
-    todo!()
+    let m = p.start();
+    // skip OpAtomicExchange token
+    p.bump();
+    p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Type);
+
+    p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+
+    p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+
+    p.expect(TokenKind::Int);
+
+    p.expect(TokenKind::Int);
+
+    p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+
+    m.complete(p, TokenKind::AtomicExchangeExpr)
 }
 
 
 fn variable_def(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
-    // skip Percent token
-    p.bump();
+    p.expect(TokenKind::Percent);
 
     p.expect(TokenKind::Ident);
 
     p.expect(TokenKind::Equal);
 
     stmt(p);
-    p.expect(TokenKind::Newline);
+    // p.expect(TokenKind::Newline);
 
     m.complete(p, TokenKind::VariableDef)
 }
 
-fn if_statement(p: &mut Parser) -> CompletedMarker {
-    let m = p.start();
-    // consume if keyword
-    p.bump();
-    let condition = expr(p);
-    p.expect(TokenKind::LeftBrace);
-
-    let then_branch = stmt(p);
-    p.expect(TokenKind::RightBrace);
-    if p.at(TokenKind::Else) {
-        p.expect(TokenKind::LeftBrace);
-
-        let else_branch = stmt(p);
-        p.expect(TokenKind::RightBrace);
-    }
-    m.complete(p, TokenKind::IfStatement)
-}
-
-// block statement contain a list of statements within a block
-fn block_statement(p: &mut Parser) -> CompletedMarker {
-    let m = p.start();
-    // consume left brace
-    p.bump();
-    // stop until reach right brace or EOF
-    while !p.at(TokenKind::RightBrace) && !p.at_end() {
-        if stmt(p).is_none() {
-            break;
-        }
-    }
-    p.expect(TokenKind::RightBrace);
-    p.expect(TokenKind::SemiColon);
-    m.complete(p, TokenKind::BlockStatement)
-}
-
-fn func_statement(p: &mut Parser) -> CompletedMarker {
-    todo!()
-}

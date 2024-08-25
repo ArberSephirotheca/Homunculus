@@ -110,6 +110,13 @@ impl Expr {
             TokenKind::OpStore => Some(Self::StoreExpr(StoreExpr(node))),
             TokenKind::OpConstant => Some(Self::ConstExpr(ConstExpr(node))),
             TokenKind::OpIEqual => Some(Self::EqualExpr(EqualExpr(node))),
+            TokenKind::OpINotEqual => Some(Self::NotEqualExpr(NotEqualExpr(node))),
+            TokenKind::OpSGreaterThan => Some(Self::GreaterThanExpr(GreaterThanExpr(node))),
+            TokenKind::OpSGreaterThanEqual => Some(Self::GreaterThanEqualExpr(GreaterThanEqualExpr(node))),
+            TokenKind::OpSLessThan => Some(Self::LessThanExpr(LessThanExpr(node))),
+            TokenKind::OpSLessThanEqual => Some(Self::LessThanEqualExpr(LessThanEqualExpr(node))),
+            TokenKind::OpAtomicExchange => Some(Self::AtomicExchangeExpr(AtomicExchangeExpr(node))),
+            TokenKind::OpAtomicCompareExchange => Some(Self::AtomicCompareExchangeExpr(AtomicCompareExchangeExpr(node))),
             _ => None,
         }
     }
@@ -125,6 +132,9 @@ impl Stmt {
             TokenKind::OpReturn | TokenKind::OpKill => Some(Self::ReturnStatement(ReturnStatement(node))),
             TokenKind::BranchConditionalStatement => Some(Self::BranchConditionalStatement(BranchConditionalStatement(node))),
             TokenKind::BranchStatement => Some(Self::BranchStatement(BranchStatement(node))),
+            //TokenKind::SwitchStatement => Some(Self::SwitchStatement(SwitchStatement(node))),
+            TokenKind::LoopMergeStatement => Some(Self::LoopMergeStatement(LoopMergeStatement(node))),
+            TokenKind::SelectionMergeStatement => Some(Self::SelectionMergeStatement(SelectionMergeStatement(node))),
             _ => Some(Self::Expr(Expr::cast(node)?)),
         }
     }
@@ -142,6 +152,7 @@ impl Root {
         }
     }
 }
+
 
 impl BinaryExpr {
     pub(crate) fn lhs(&self) -> Option<Expr> {
@@ -208,4 +219,100 @@ impl VariableDef {
     pub(crate) fn value(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
+}
+
+impl LabelExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl LoadExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl StoreExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl ConstExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl EqualExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl NotEqualExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl LessThanExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl GreaterThanExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl LessThanEqualExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl GreaterThanEqualExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl AtomicExchangeExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl AtomicCompareExchangeExpr{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl ReturnStatement {
+    // todo: implement
+}
+
+impl BranchConditionalStatement {
+    // todo: implement
+}
+
+impl BranchStatement {
+    // todo: implement
+}
+
+impl SwitchStatement {
+    // todo: implement
+}
+
+impl LoopMergeStatement {
+    // todo: implement
+}
+
+impl SelectionMergeStatement {
+    // todo: implement
 }

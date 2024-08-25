@@ -12,7 +12,7 @@ use core::mem;
 use rowan::GreenNode;
 type AsukaResult<T> = Result<T, AsukaError>;
 
-const RECOVERY_SET: [TokenKind; 2] = [TokenKind::Let, TokenKind::SemiColon];
+const RECOVERY_SET: [TokenKind; 1] = [TokenKind::Newline];
 
 pub(crate) struct Parser<'l, 't> {
     source: Source<'l, 't>,
@@ -133,7 +133,7 @@ impl Parse {
         for error in &self.errors {
             s.push_str(&format!("\n{}", error));
         }
-
+        
         s
     }
 
@@ -158,6 +158,14 @@ mod test{
         let parse = parse(input);
         expected_tree.assert_eq(&parse.debug_tree());
     }
+
+    // #[test]
+    // fn parse_newline() {
+    //     check("\n", expect![[r#"
+    //     Root@0..1
+    //         Newline@0..1 "\n"
+    //     "#]]);
+    // }
     #[test]
     fn parse_nothing() {
         check("", expect![[r#"Root@0..0"#]]);

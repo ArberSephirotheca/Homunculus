@@ -73,18 +73,5 @@ mod tests {
         );
     }
 
-    #[test]
-    fn multiple_expected_did_find() {
-        check(
-            vec![
-                TokenKind::Int,
-                TokenKind::Ident,
-                TokenKind::Minus,
-                TokenKind::LeftParen,
-            ],
-            Some(TokenKind::Let),
-            100..105,
-            "error at 100..105: expected int, identifier, ‘-’ or ‘(’, but found ‘let’",
-        );
-    }
+
 }

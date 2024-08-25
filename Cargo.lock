@@ -6,6 +6,7 @@ version = 3
 name = "asuka"
 version = "0.1.0"
 dependencies = [
+ "camino",
  "expect-test",
  "eyre",
  "lazy_static",
@@ -28,6 +29,12 @@ name = "beef"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a8241f3ebb85c056b509d4327ad0358fbbba6ffb340bf388f26350aeda225b1"
+
+[[package]]
+name = "camino"
+version = "1.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b96ec4966b5813e2c0507c1f86115c8c5abaadc3980879c3424042a02fd1ad3"
 
 [[package]]
 name = "countme"

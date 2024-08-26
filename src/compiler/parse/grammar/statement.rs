@@ -122,13 +122,11 @@ fn op_type_bool_expr(p: &mut Parser) -> CompletedMarker {
     m.complete(p, TokenKind::TypeBoolExpr)
 }
 
-/// example OpTypeVector %v3uint %uint 3
+/// example OpTypeVector %uint 3
 fn op_type_vector_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpTypeVector token
     p.bump();
-    p.expect(TokenKind::Percent);
-    p.expect(TokenKind::Ident);
     p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Int);
@@ -175,13 +173,18 @@ fn op_type_struct_expr(p: &mut Parser) -> CompletedMarker {
     m.complete(p, TokenKind::TypeStructExpr)
 }
 
-/// example OpTypePointer %_ptr_Function_uint Function
+/// example OpTypePointer Function %_ptr_Function_uint
 fn op_type_pointer_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpTypePointer token
     p.bump();
+    // accept Uniform, Input, Output, Workgroup, Function
+    if p.at(TokenKind::Global) || p.at(TokenKind::Shared) || p.at(TokenKind::Local) {
+        p.bump();
+    } else{
+        p.error();
+    }
     p.expect(TokenKind::Percent);
-    p.expect(TokenKind::Ident);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::TypePointerExpr)
@@ -196,6 +199,8 @@ fn op_variable_expr(p: &mut Parser) -> CompletedMarker {
     // it can be Uniform, Input, Output, Workgroup, Function
     if p.at(TokenKind::Global) || p.at(TokenKind::Shared) || p.at(TokenKind::Local) {
         p.bump();
+    }else{
+        p.error();
     }
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::VariableExpr)

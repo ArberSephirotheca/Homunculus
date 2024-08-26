@@ -34,21 +34,21 @@ pub(crate) enum SpirvType {
         signed: bool,
     },
     Vector {
-        element: Arc<Symbol>,
+        element: Symbol,
         count: u32,
     },
     Array {
-        element: Arc<Symbol>,
+        element: Symbol,
         count: u32,
     },
     RuntimeArray {
-        element: Arc<Symbol>,
+        element: Symbol,
     },
     Struct {
-        members: Vec<Symbol>,
+        members: Symbol,
     },
     Pointer {
-        pointee: Arc<Symbol>,
+        pointee: Symbol,
         storage_class: StorageClass,
     },
 }

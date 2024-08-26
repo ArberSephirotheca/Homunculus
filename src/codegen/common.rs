@@ -1,7 +1,10 @@
 //! common is used to stored the common program information(e.g. number of blocks, subgroup size, thread numbers,...) in the codegen module.
 
 use super::constant::Constant;
-use crate::compiler::{ast::ast::{Expr, Stmt}, parse::symbol_table::{SpirvType, StorageClass}};
+use crate::compiler::{
+    ast::ast::{Expr, Stmt},
+    parse::symbol_table::{SpirvType, StorageClass},
+};
 use smallvec::SmallVec;
 
 #[derive(Debug)]
@@ -21,10 +24,9 @@ pub enum BuiltInVariable {
 #[derive(Debug)]
 pub enum InstructionName {
     Assignment,
-    
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum VariableScope {
     Literal,
     Local,
@@ -32,7 +34,7 @@ pub enum VariableScope {
     Global,
 }
 
-impl VariableScope{
+impl VariableScope {
     pub fn from_storage_class(storage_class: &StorageClass) -> Self {
         match storage_class {
             StorageClass::Global => VariableScope::Global,
@@ -52,7 +54,7 @@ pub enum InstructionScope {
     None,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum InstructionValueType {
     Bool(bool),
     String(String),
@@ -90,7 +92,7 @@ pub struct InstructionArguments {
 
 #[derive(Debug)]
 pub struct Instruction {
-    pub position: u32,
+    // pub position: u32,
     pub name: InstructionName,
     pub arguments: InstructionArguments,
 }
@@ -116,6 +118,6 @@ pub struct Program {
     pub num_work_groups: u32,
     pub num_threads: u32,
     pub scheduler: Scheduler,
-    pub thread: SmallVec<[Thread; 8]>,
+    pub instructions: SmallVec<[Instruction; 10]>,
     pub constants: SmallVec<[Constant; 10]>,
 }

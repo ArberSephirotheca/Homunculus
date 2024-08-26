@@ -52,7 +52,6 @@ impl GlobalVarBuilder {
         self.index = Some(index);
         self
     }
-    
 
     pub fn build(self) -> Result<GlobalVar> {
         Ok(GlobalVar {
@@ -62,7 +61,6 @@ impl GlobalVarBuilder {
         })
     }
 }
-
 
 impl InstructionArgument {
     pub fn builder() -> InstructionArgumentBuilder {
@@ -109,7 +107,6 @@ impl InstructionArgumentBuilder {
     }
 }
 
-
 impl InstructionArguments {
     pub fn builder() -> InstructionArgumentsBuilder {
         InstructionArgumentsBuilder::default()
@@ -152,13 +149,6 @@ impl InstructionArgumentsBuilder {
     }
 }
 
-#[derive(Debug)]
-pub struct Instruction {
-    // pub position: u32,
-    pub name: InstructionName,
-    pub arguments: InstructionArguments,
-}
-
 impl Instruction {
     pub fn builder() -> InstructionBuilder {
         InstructionBuilder::default()
@@ -199,11 +189,6 @@ impl InstructionBuilder {
     }
 }
 
-#[derive(Debug)]
-pub struct Thread {
-    pub instructions: SmallVec<[Instruction; 10]>,
-}
-
 impl Thread {
     pub fn builder() -> ThreadBuilder {
         ThreadBuilder::default()
@@ -228,19 +213,6 @@ impl ThreadBuilder {
     }
 }
 
-#[derive(Debug)]
-pub struct Program {
-    pub global_vars: Vec<GlobalVar>,
-    pub subgroup_size: u32,
-    pub work_group_size: u32,
-    pub num_work_groups: u32,
-    pub num_threads: u32,
-    pub scheduler: Scheduler,
-    // todo: for now, we only support threads with same instructions
-    // pub thread: SmallVec<[Thread; 8]>,
-    instructions: SmallVec<[Instruction; 10]>,
-}
-
 impl Program {
     pub fn builder() -> ProgramBuilder {
         ProgramBuilder::default()
@@ -257,6 +229,7 @@ pub struct ProgramBuilder {
     scheduler: Option<Scheduler>,
     // thread: SmallVec<[Thread; 8]>,
     instructions: SmallVec<[Instruction; 10]>,
+    constants: SmallVec<[Constant; 10]>,
 }
 
 impl ProgramBuilder {
@@ -314,6 +287,7 @@ impl ProgramBuilder {
                 .scheduler
                 .ok_or_else(|| eyre!("Scheduler is required"))?,
             instructions: self.instructions,
+            constants: self.constants,
         })
     }
 }

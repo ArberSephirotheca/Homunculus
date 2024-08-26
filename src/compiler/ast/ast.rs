@@ -162,8 +162,8 @@ impl TypeExpr {
             .children_with_tokens()
             .filter_map(|child| {
                 let token = child.into_token()?;
-                // Filter out whitespace tokens
-                if token.kind() != TokenKind::Whitespace {
+                // Filter out whitespace tokens and percent
+                if token.kind() != TokenKind::Whitespace && token.kind() != TokenKind::Percent {
                     Some(token)
                 } else {
                     None
@@ -192,11 +192,32 @@ impl TypeExpr {
                     _ => panic!("Invalid width {:#?}, and signed value {:#?}", width, signed),
                 }
             }
-            TokenKind::TypeVectorExpr => todo!(),
-            TokenKind::TypeArrayExpr => todo!(),
-            TokenKind::TypeRuntimeArrayExpr => todo!(),
-            TokenKind::TypeStructExpr => todo!(),
-            TokenKind::TypePointerExpr => todo!(),
+            TokenKind::OpTypeVector => {
+                // fixme: error handling
+                let inner_ty_symbol = &tokens[1];
+                let count = &tokens[2];
+                println!("{:#?}", tokens);
+                println!("inner_ty_symbol: {:#?}", inner_ty_symbol);
+                println!("count: {:#?}", count);
+                SpirvType::Vector { element: inner_ty_symbol.text().to_string(), count: count.text().parse().unwrap() }
+            },
+            TokenKind::OpTypeArray => todo!(),
+            TokenKind::OpTypeRuntimeArray => todo!(),
+            TokenKind::OpTypeStruct => todo!(),
+            TokenKind::OpTypePointer => {
+                println!("{:#?}", tokens);
+                let storage_class = &tokens[1];
+                let pointee = &tokens[2];
+                SpirvType::Pointer {
+                    pointee: pointee.text().to_string(),
+                    storage_class: match storage_class.text().to_string().as_str() {
+                        "Uniform" | "Input" | "Output" => StorageClass::Global,
+                        "Workgroup" => StorageClass::Shared,
+                        "Function" => StorageClass::Local,
+                        _ => panic!("Invalid storage class {:#?}", storage_class),
+                    },
+                }
+            },
             _ => panic!("Invalid type {}", self.0.first_token().unwrap().text()),
         }
     }

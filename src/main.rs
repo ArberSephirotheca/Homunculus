@@ -1,7 +1,7 @@
-mod compiler;
 mod codegen;
-use compiler::parse::parser::parse;
+mod compiler;
 use compiler::ast::ast;
+use compiler::parse::parser::parse;
 use std::io::{self, Write};
 
 fn main() -> io::Result<()> {
@@ -30,7 +30,7 @@ fn main() -> io::Result<()> {
                 None
             })
             .collect::<Vec<_>>());
-        
+
         input.clear();
     }
 }

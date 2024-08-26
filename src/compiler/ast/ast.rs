@@ -1,25 +1,20 @@
+use rowan::TokenAtOffset;
+
+use crate::compiler::parse::symbol_table::{SpirvType, StorageClass};
 use crate::compiler::parse::syntax::{SyntaxElement, SyntaxNode, SyntaxToken, TokenKind};
 
 #[derive(Debug)]
 pub struct Root(SyntaxNode);
 #[derive(Debug)]
-pub struct BinaryExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct Literal(SyntaxNode);
-#[derive(Debug)]
-pub struct ParenExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct UnaryExpr(SyntaxNode);
-#[derive(Debug)]
 pub struct VariableRef(SyntaxNode);
 #[derive(Debug)]
 pub struct VariableDef(SyntaxNode);
 #[derive(Debug)]
-pub struct IfStatement(SyntaxNode);
-#[derive(Debug)]
-pub struct BlockStatement(SyntaxNode);
-#[derive(Debug)]
 pub struct FuncStatement(SyntaxNode);
+#[derive(Debug)]
+pub struct VariableExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct TypeExpr(SyntaxNode);
 
 #[derive(Debug)]
 pub struct LabelExpr(SyntaxNode);
@@ -46,7 +41,6 @@ pub struct AtomicExchangeExpr(SyntaxNode);
 #[derive(Debug)]
 pub struct AtomicCompareExchangeExpr(SyntaxNode);
 
-
 #[derive(Debug)]
 pub struct ReturnStatement(SyntaxNode);
 #[derive(Debug)]
@@ -62,12 +56,9 @@ pub struct SelectionMergeStatement(SyntaxNode);
 
 #[derive(Debug)]
 pub enum Expr {
-    BinaryExpr(BinaryExpr),
-    Literal(Literal),
-    ParenExpr(ParenExpr),
-    UnaryExpr(UnaryExpr),
+    VariableExpr(VariableExpr),
+    TypeExpr(TypeExpr),
     VariableRef(VariableRef),
-
     LabelExpr(LabelExpr),
     LoadExpr(LoadExpr),
     StoreExpr(StoreExpr),
@@ -85,8 +76,6 @@ pub enum Expr {
 #[derive(Debug)]
 pub enum Stmt {
     VariableDef(VariableDef),
-    IfStatement(IfStatement),
-    BlockStatement(BlockStatement),
     FuncStatement(FuncStatement),
     ReturnStatement(ReturnStatement),
     BranchConditionalStatement(BranchConditionalStatement),
@@ -95,16 +84,20 @@ pub enum Stmt {
     LoopMergeStatement(LoopMergeStatement),
     SelectionMergeStatement(SelectionMergeStatement),
     Expr(Expr),
-
 }
 
 impl Expr {
     pub(crate) fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            TokenKind::InfixExpr => Some(Self::BinaryExpr(BinaryExpr(node))),
-            TokenKind::Literal => Some(Self::Literal(Literal(node))),
-            TokenKind::ParenExpr => Some(Self::ParenExpr(ParenExpr(node))),
-            TokenKind::VariableRef => Some(Self::VariableRef(VariableRef(node))),
+            TokenKind::TypeBoolExpr
+            | TokenKind::TypeIntExpr
+            | TokenKind::TypeVectorExpr
+            | TokenKind::TypeArrayExpr
+            | TokenKind::TypeRuntimeArrayExpr
+            | TokenKind::TypeStructExpr
+            | TokenKind::TypePointerExpr => Some(Self::TypeExpr(TypeExpr(node))),
+            TokenKind::VariableExpr => Some(Self::VariableExpr(VariableExpr(node))),
+            TokenKind::OpAccessChain => Some(Self::VariableRef(VariableRef(node))),
             TokenKind::OpLabel => Some(Self::LabelExpr(LabelExpr(node))),
             TokenKind::OpLoad => Some(Self::LoadExpr(LoadExpr(node))),
             TokenKind::OpStore => Some(Self::StoreExpr(StoreExpr(node))),
@@ -112,11 +105,15 @@ impl Expr {
             TokenKind::OpIEqual => Some(Self::EqualExpr(EqualExpr(node))),
             TokenKind::OpINotEqual => Some(Self::NotEqualExpr(NotEqualExpr(node))),
             TokenKind::OpSGreaterThan => Some(Self::GreaterThanExpr(GreaterThanExpr(node))),
-            TokenKind::OpSGreaterThanEqual => Some(Self::GreaterThanEqualExpr(GreaterThanEqualExpr(node))),
+            TokenKind::OpSGreaterThanEqual => {
+                Some(Self::GreaterThanEqualExpr(GreaterThanEqualExpr(node)))
+            }
             TokenKind::OpSLessThan => Some(Self::LessThanExpr(LessThanExpr(node))),
             TokenKind::OpSLessThanEqual => Some(Self::LessThanEqualExpr(LessThanEqualExpr(node))),
             TokenKind::OpAtomicExchange => Some(Self::AtomicExchangeExpr(AtomicExchangeExpr(node))),
-            TokenKind::OpAtomicCompareExchange => Some(Self::AtomicCompareExchangeExpr(AtomicCompareExchangeExpr(node))),
+            TokenKind::OpAtomicCompareExchange => Some(Self::AtomicCompareExchangeExpr(
+                AtomicCompareExchangeExpr(node),
+            )),
             _ => None,
         }
     }
@@ -126,15 +123,20 @@ impl Stmt {
     pub(crate) fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
             TokenKind::VariableDef => Some(Self::VariableDef(VariableDef(node))),
-            TokenKind::IfStatement => todo!(),
-            TokenKind::BlockStatement => todo!(),
-            TokenKind::FuncStatement => todo!(),
-            TokenKind::OpReturn | TokenKind::OpKill => Some(Self::ReturnStatement(ReturnStatement(node))),
-            TokenKind::BranchConditionalStatement => Some(Self::BranchConditionalStatement(BranchConditionalStatement(node))),
+            TokenKind::OpReturn | TokenKind::OpKill => {
+                Some(Self::ReturnStatement(ReturnStatement(node)))
+            }
+            TokenKind::BranchConditionalStatement => Some(Self::BranchConditionalStatement(
+                BranchConditionalStatement(node),
+            )),
             TokenKind::BranchStatement => Some(Self::BranchStatement(BranchStatement(node))),
             //TokenKind::SwitchStatement => Some(Self::SwitchStatement(SwitchStatement(node))),
-            TokenKind::LoopMergeStatement => Some(Self::LoopMergeStatement(LoopMergeStatement(node))),
-            TokenKind::SelectionMergeStatement => Some(Self::SelectionMergeStatement(SelectionMergeStatement(node))),
+            TokenKind::LoopMergeStatement => {
+                Some(Self::LoopMergeStatement(LoopMergeStatement(node)))
+            }
+            TokenKind::SelectionMergeStatement => {
+                Some(Self::SelectionMergeStatement(SelectionMergeStatement(node)))
+            }
             _ => Some(Self::Expr(Expr::cast(node)?)),
         }
     }
@@ -153,54 +155,103 @@ impl Root {
     }
 }
 
-
-impl BinaryExpr {
-    pub(crate) fn lhs(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
-    }
-
-    pub(crate) fn rhs(&self) -> Option<Expr> {
-        self.0.children().filter_map(Expr::cast).nth(1)
-    }
-
-    pub(crate) fn op(&self) -> Option<SyntaxToken> {
-        self.0
+impl TypeExpr {
+    pub fn ty(&self) -> SpirvType {
+        let tokens: Vec<SyntaxToken> = self
+            .0
             .children_with_tokens()
-            .filter_map(|x| x.into_token())
-            .find(|t| {
-                matches!(
-                    t.kind(),
-                    TokenKind::Plus | TokenKind::Minus | TokenKind::Star | TokenKind::Slash,
-                )
+            .filter_map(|child| {
+                let token = child.into_token()?;
+                // Filter out whitespace tokens
+                if token.kind() != TokenKind::Whitespace {
+                    Some(token)
+                } else {
+                    None
+                }
             })
+            // fixme: make this more robust
+            .take(10)
+            .collect();
+
+        match &tokens[0].kind() {
+            TokenKind::OpTypeBool => SpirvType::Bool,
+            TokenKind::OpTypeInt => {
+                let width = &tokens[1];
+                let signed = &tokens[2];
+                match (&width.kind(), &signed.kind()) {
+                    (TokenKind::Int, TokenKind::Int) => {
+                        return SpirvType::Int {
+                            width: width.text().parse().unwrap(),
+                            signed: match signed.text().parse().unwrap() {
+                                0 => false,
+                                1 => true,
+                                _ => panic!("Invalid signed value {:#?}", signed),
+                            },
+                        };
+                    }
+                    _ => panic!("Invalid width {:#?}, and signed value {:#?}", width, signed),
+                }
+            }
+            TokenKind::TypeVectorExpr => todo!(),
+            TokenKind::TypeArrayExpr => todo!(),
+            TokenKind::TypeRuntimeArrayExpr => todo!(),
+            TokenKind::TypeStructExpr => todo!(),
+            TokenKind::TypePointerExpr => todo!(),
+            _ => panic!("Invalid type {}", self.0.first_token().unwrap().text()),
+        }
+    }
+    pub fn name(&self) -> String {
+        self.0.first_token().unwrap().text().to_string()
     }
 }
 
-impl UnaryExpr {
-    pub(crate) fn expr(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
-    }
-
-    pub(crate) fn op(&self) -> Option<SyntaxToken> {
+impl VariableExpr {
+    pub(crate) fn ty_name(&self) -> String {
         self.0
             .children_with_tokens()
-            .filter_map(|x| x.into_token())
-            .find(|t| t.kind() == TokenKind::Minus)
+            .filter_map(|child| {
+                let token = child.into_token()?;
+                // Filter out whitespace and percent tokens
+                if token.kind() != TokenKind::Whitespace && token.kind() != TokenKind::Percent {
+                    Some(token)
+                } else {
+                    None
+                }
+            })
+            .take(2)
+            .nth(1)
+            .unwrap()
+            .text()
+            .to_string()
+    }
+
+    pub(crate) fn storage_class(&self) -> StorageClass {
+        let scope_str = self
+            .0
+            .children_with_tokens()
+            .filter_map(|child| {
+                let token = child.into_token()?;
+                // Filter out whitespace and percent tokens
+                if token.kind() != TokenKind::Whitespace && token.kind() != TokenKind::Percent {
+                    Some(token)
+                } else {
+                    None
+                }
+            })
+            .take(3)
+            .nth(2)
+            .unwrap()
+            .text()
+            .to_string();
+        // fixme: error handling
+        match scope_str.as_str() {
+            "Uniform" | "Input" | "Output" => StorageClass::Global,
+            "Workgroup" => StorageClass::Shared,
+            "Function" => StorageClass::Local,
+            _ => panic!("Invalid storage class {}", scope_str),
+        }
     }
 }
-
-impl ParenExpr {
-    pub(crate) fn expr(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
-    }
-}
-
-impl Literal {
-    pub(crate) fn parse(&self) -> u64 {
-        self.0.first_token().unwrap().text().parse().unwrap()
-    }
-}
-
 impl VariableRef {
     pub(crate) fn name(&self) -> String {
         self.0.first_token().unwrap().text().to_string()
@@ -221,73 +272,73 @@ impl VariableDef {
     }
 }
 
-impl LabelExpr{
+impl LabelExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl LoadExpr{
+impl LoadExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl StoreExpr{
+impl StoreExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl ConstExpr{
+impl ConstExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl EqualExpr{
+impl EqualExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl NotEqualExpr{
+impl NotEqualExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl LessThanExpr{
+impl LessThanExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl GreaterThanExpr{
+impl GreaterThanExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl LessThanEqualExpr{
+impl LessThanEqualExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl GreaterThanEqualExpr{
+impl GreaterThanEqualExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl AtomicExchangeExpr{
+impl AtomicExchangeExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
 }
 
-impl AtomicCompareExchangeExpr{
+impl AtomicCompareExchangeExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
@@ -315,4 +366,62 @@ impl LoopMergeStatement {
 
 impl SelectionMergeStatement {
     // todo: implement
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ast::Expr;
+    use crate::ast::Root;
+    use crate::compiler::parse::symbol_table::SpirvType;
+    use crate::compiler::parse::symbol_table::StorageClass;
+    use crate::compiler::{
+        ast::ast::TypeExpr,
+        parse::{parser::parse, syntax::TokenKind},
+    };
+    use expect_test::expect;
+    fn check(input: &str, expected_tree: expect_test::Expect) {
+        let parse = parse(input);
+        expected_tree.assert_eq(&parse.debug_tree());
+    }
+
+    #[test]
+    fn check_type() {
+        let parse = parse(
+            "OpTypeInt 32 0
+        ",
+        );
+        let syntax = parse.syntax();
+        let root = Root::cast(syntax).unwrap();
+        let stmt = root.stmts().next().unwrap();
+        let type_expr = match stmt {
+            crate::compiler::ast::ast::Stmt::Expr(Expr::TypeExpr(type_expr)) => type_expr,
+            _ => panic!("Expected variable definition"),
+        };
+        assert_eq!(type_expr.name(), "OpTypeInt");
+        assert_eq!(
+            type_expr.ty(),
+            SpirvType::Int {
+                width: 32,
+                signed: false
+            }
+        );
+    }
+
+    #[test]
+    fn check_variable_expr() {
+        let input = "OpVariable %_ptr_Uniform_Output Uniform";
+        let expected_name = "_ptr_Uniform_Output";
+        let parse = parse(input);
+        let syntax = parse.syntax();
+        let root = Root::cast(syntax).unwrap();
+        let stmt = root.stmts().next().unwrap();
+        let variable_expr = match stmt {
+            crate::compiler::ast::ast::Stmt::Expr(Expr::VariableExpr(variable_expr)) => {
+                variable_expr
+            }
+            _ => panic!("Expected variable definition"),
+        };
+        assert_eq!(variable_expr.ty_name(), expected_name);
+        assert_eq!(variable_expr.storage_class(), StorageClass::Global);
+    }
 }

@@ -72,6 +72,4 @@ mod tests {
             "error at 10..20: expected ‘=’, but found identifier",
         );
     }
-
-
 }

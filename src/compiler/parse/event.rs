@@ -1,5 +1,5 @@
-use crate::compiler::parse::syntax::TokenKind;
 use super::parser_error::ParseError;
+use crate::compiler::parse::syntax::TokenKind;
 // Make our parser event base.
 // The benefit of Event-driven parser is that it makes parser faster
 // if we have a previous parse tree lying around.

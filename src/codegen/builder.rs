@@ -1,11 +1,37 @@
-use super::constants::*;
-use smallvec::SmallVec;
+use super::common::*;
+use super::constant::*;
 use eyre::{eyre, Result};
+use smallvec::SmallVec;
+
+#[derive(Default)]
+pub struct ConstantBuilder {
+    name: Option<String>,
+    value: Option<ConstantType>,
+}
+
+impl ConstantBuilder {
+    pub fn name(mut self, name: String) -> Self {
+        self.name = Some(name);
+        self
+    }
+
+    pub fn value(mut self, value: ConstantType) -> Self {
+        self.value = Some(value);
+        self
+    }
+
+    pub fn build(self) -> Result<Constant> {
+        Ok(Constant {
+            name: self.name.ok_or_else(|| eyre!("Name is required"))?,
+            value: self.value.ok_or_else(|| eyre!("Value is required"))?,
+        })
+    }
+}
 
 #[derive(Default)]
 pub struct GlobalVarBuilder {
     name: Option<String>,
-    value: Option<String>,
+    value: Option<InstructionValueType>,
     index: Option<u32>,
 }
 
@@ -15,7 +41,7 @@ impl GlobalVarBuilder {
         self
     }
 
-    pub fn value(mut self, value: String) -> Self {
+    pub fn value(mut self, value: InstructionValueType) -> Self {
         self.value = Some(value);
         self
     }
@@ -125,8 +151,12 @@ impl InstructionArgumentsBuilder {
 
     pub fn build(self) -> Result<InstructionArguments> {
         Ok(InstructionArguments {
-            num_args: self.num_args.ok_or_else(|| eyre!("Number of arguments is required"))?,
-            scope: self.scope.ok_or_else(|| eyre!("Instruction scope is required"))?,
+            num_args: self
+                .num_args
+                .ok_or_else(|| eyre!("Number of arguments is required"))?,
+            scope: self
+                .scope
+                .ok_or_else(|| eyre!("Instruction scope is required"))?,
             arguments: self.arguments,
         })
     }
@@ -172,7 +202,9 @@ impl InstructionBuilder {
         Ok(Instruction {
             position: self.position.ok_or_else(|| eyre!("Position is required"))?,
             name: self.name.ok_or_else(|| eyre!("Name is required"))?,
-            arguments: self.arguments.ok_or_else(|| eyre!("Arguments are required"))?,
+            arguments: self
+                .arguments
+                .ok_or_else(|| eyre!("Arguments are required"))?,
         })
     }
 }
@@ -214,7 +246,9 @@ pub struct Program {
     pub num_work_groups: u32,
     pub num_threads: u32,
     pub scheduler: Scheduler,
-    pub thread: SmallVec<[Thread; 8]>,
+    // todo: for now, we only support threads with same instructions
+    // pub thread: SmallVec<[Thread; 8]>,
+    instructions: SmallVec<[Instruction; 10]>,
 }
 
 impl Program {
@@ -231,7 +265,8 @@ pub struct ProgramBuilder {
     num_work_groups: Option<u32>,
     num_threads: Option<u32>,
     scheduler: Option<Scheduler>,
-    thread: SmallVec<[Thread; 8]>,
+    // thread: SmallVec<[Thread; 8]>,
+    instructions: SmallVec<[Instruction; 10]>,
 }
 
 impl ProgramBuilder {
@@ -265,20 +300,30 @@ impl ProgramBuilder {
         self
     }
 
-    pub fn thread(mut self, thread: Thread) -> Self {
-        self.thread.push(thread);
+    pub fn instruction(mut self, instruction: Instruction) -> Self {
+        self.instructions.push(instruction);
         self
     }
 
     pub fn build(self) -> Result<Program> {
         Ok(Program {
             global_vars: self.global_vars,
-            subgroup_size: self.subgroup_size.ok_or_else(|| eyre!("Subgroup size is required"))?,
-            work_group_size: self.work_group_size.ok_or_else(|| eyre!("Work group size is required"))?,
-            num_work_groups: self.num_work_groups.ok_or_else(|| eyre!("Number of work groups is required"))?,
-            num_threads: self.num_threads.ok_or_else(|| eyre!("Number of threads is required"))?,
-            scheduler: self.scheduler.ok_or_else(|| eyre!("Scheduler is required"))?,
-            thread: self.thread,
+            subgroup_size: self
+                .subgroup_size
+                .ok_or_else(|| eyre!("Subgroup size is required"))?,
+            work_group_size: self
+                .work_group_size
+                .ok_or_else(|| eyre!("Work group size is required"))?,
+            num_work_groups: self
+                .num_work_groups
+                .ok_or_else(|| eyre!("Number of work groups is required"))?,
+            num_threads: self
+                .num_threads
+                .ok_or_else(|| eyre!("Number of threads is required"))?,
+            scheduler: self
+                .scheduler
+                .ok_or_else(|| eyre!("Scheduler is required"))?,
+            instructions: self.instructions,
         })
     }
 }

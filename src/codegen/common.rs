@@ -1,15 +1,31 @@
-//! const is used to stored the constants value(e.g. number of blocks, subgroup size, thread numbers,...) in the codegen module.
+//! common is used to stored the common program information(e.g. number of blocks, subgroup size, thread numbers,...) in the codegen module.
 
+use super::constant::Constant;
 use crate::compiler::ast::ast::{Expr, Stmt};
 use smallvec::SmallVec;
+
 #[derive(Debug)]
-pub enum InstructionName{
+pub enum BuiltInVariable {
+    NumWorkgroups,
+    WorkgroupSize,
+    WorkgroupId,
+    LocalInvocationId,
+    GlobalInvocationId,
+    SubgroupSize,
+    NumSubgroups,
+    SubgroupId,
+    SubgroupLocalInvocationId,
+    // There are more built-in variables, but currently we only support these
+}
+
+#[derive(Debug)]
+pub enum InstructionName {
     Expr(Expr),
     Stmt(Stmt),
 }
 
 #[derive(Debug)]
-pub enum VariableScope{
+pub enum VariableScope {
     Literal,
     Local,
     Shared,
@@ -17,7 +33,7 @@ pub enum VariableScope{
 }
 
 #[derive(Debug)]
-pub enum InstructionScope{
+pub enum InstructionScope {
     // CrossDevice = 0,
     // Device = 1,
     WorkGroup = 2,
@@ -27,27 +43,28 @@ pub enum InstructionScope{
 }
 
 #[derive(Debug)]
-pub enum InstructionValueType{
+pub enum InstructionValueType {
     Bool(bool),
     String(String),
     Int(i32),
+    UInt(u32),
 }
 
 #[derive(Debug)]
-pub enum Scheduler{
+pub enum Scheduler {
     OBE,
     HSA,
 }
 
 #[derive(Debug)]
-pub struct GlobalVar{
+pub struct GlobalVar {
     pub name: String,
-    pub value: String,
+    pub value: InstructionValueType,
     pub index: u32,
 }
 
 #[derive(Debug)]
-pub struct InstructionArgument{
+pub struct InstructionArgument {
     pub name: String,
     pub scope: VariableScope,
     pub value: InstructionValueType,
@@ -55,21 +72,21 @@ pub struct InstructionArgument{
 }
 
 #[derive(Debug)]
-pub struct InstructionArguments{
+pub struct InstructionArguments {
     pub num_args: u32,
     pub scope: InstructionScope,
     pub arguments: SmallVec<[InstructionArgument; 4]>,
 }
 
 #[derive(Debug)]
-pub struct Instruction{
+pub struct Instruction {
     pub position: u32,
     pub name: InstructionName,
     pub arguments: InstructionArguments,
 }
 
 #[derive(Debug)]
-pub struct Thread{
+pub struct Thread {
     pub instructions: SmallVec<[Instruction; 10]>,
 }
 
@@ -80,8 +97,9 @@ pub struct Thread{
 /// `num_threads: u32` is the number of threads.
 /// `scheduler: Scheduler` is the scheduler type.
 /// `thread: Vec<Thread>` is a vector of threads.
+/// `constants: Vec<Constant>` is a vector of constants.
 #[derive(Debug)]
-pub struct Program{
+pub struct Program {
     pub global_vars: Vec<GlobalVar>,
     pub subgroup_size: u32,
     pub work_group_size: u32,
@@ -89,4 +107,5 @@ pub struct Program{
     pub num_threads: u32,
     pub scheduler: Scheduler,
     pub thread: SmallVec<[Thread; 8]>,
+    pub constants: SmallVec<[Constant; 10]>,
 }

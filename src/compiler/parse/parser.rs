@@ -3,7 +3,6 @@ use super::marker::Marker;
 use super::{
     event::Event, lexer::Lexer, parser_error::AsukaError, parser_error::ParseError, sink::Sink,
 };
-use crate::compiler::parse::grammar::expr::expr;
 use crate::compiler::parse::lexer::Token;
 use crate::compiler::parse::source::Source;
 use crate::compiler::parse::syntax::SyntaxNode;
@@ -133,7 +132,7 @@ impl Parse {
         for error in &self.errors {
             s.push_str(&format!("\n{}", error));
         }
-        
+
         s
     }
 
@@ -151,7 +150,7 @@ pub fn parse(input: &str) -> Parse {
     sink.finish()
 }
 #[cfg(test)]
-mod test{
+mod test {
     use crate::compiler::parse::parser::parse;
     use expect_test::expect;
     fn check(input: &str, expected_tree: expect_test::Expect) {

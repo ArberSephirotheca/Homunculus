@@ -1,4 +1,4 @@
-use logos::{Logos, Filter};
+use logos::{Filter, Logos};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::fmt;
@@ -20,7 +20,6 @@ pub(crate) type SyntaxNode = rowan::SyntaxNode<AsukaLanguage>;
 pub(crate) type SyntaxToken = rowan::SyntaxToken<AsukaLanguage>;
 pub(crate) type SyntaxElement = rowan::SyntaxElement<AsukaLanguage>;
 
-
 #[derive(Debug, PartialEq, Clone, Default)]
 pub enum LexingError {
     OpUnsupported(String),
@@ -34,13 +33,7 @@ pub enum LexingError {
 //     }
 // }
 
-pub enum BuiltInVariable {
-    WorkgroupSize,
-    // todo
-}
-
-
-const INSTRUCTION_SET : [&'static str; 19] = [
+const INSTRUCTION_SET: [&'static str; 19] = [
     "OpLabel",
     "OpReturn",
     "OpKill",
@@ -72,39 +65,34 @@ fn instruction_not_supported(instruction: &str) -> bool {
     true
 }
 
-#[derive(Debug, Hash, Eq, PartialOrd, Ord, Copy, Clone, PartialEq, Logos, FromPrimitive, ToPrimitive)]
+#[derive(
+    Debug, Hash, Eq, PartialOrd, Ord, Copy, Clone, PartialEq, Logos, FromPrimitive, ToPrimitive,
+)]
 #[logos(error = LexingError)]
 pub enum TokenKind {
-    // unused
-    BinaryExpr,
-    InfixExpr,
-    UnaryExpr,
-    PrefixExpr,
-    PostfixExpr,
-    IndexExpr,
-    ParenExpr,
-    Literal,
     VariableRef,
     VariableDef,
-    IfStatement,
-    BlockStatement,
-    FuncStatement,
+    FunctionExpr,
 
     // Control flow Statement
     BranchConditionalStatement,
     BranchStatement,
     SwitchStatement,
 
-    // Statement    
+    // Statement
     ReturnStatement,
+    FunctionEndStatement,
 
     // merge instruction
     LoopMergeStatement,
     SelectionMergeStatement,
 
     // Expression
+    VariableExpr,
+    AccessChainExpr,
     LabelExpr,
     ConstantExpr,
+    ConstantCompositeExpr,
     LoadExpr,
     StoreExpr,
     EqualExpr,
@@ -116,10 +104,84 @@ pub enum TokenKind {
     AtomicExchangeExpr,
     AtomicCompareExchangeExpr,
 
+    // Type expression
+    TypeBoolExpr,
+    TypeIntExpr,
+    TypeVectorExpr,
+    TypeArrayExpr,
+    TypeRuntimeArrayExpr,
+    TypeStructExpr,
+    TypePointerExpr,
+
     Root,
     Statement,
     Error,
-    
+
+    // #[regex("gl_NumWorkGroups")]
+    // NumWorkgroups,
+    // #[regex("gl_WorkGroupSize")]
+    // WorkgroupSize,
+    // #[regex("gl_WorkGroupID")]
+    // WorkgroupId,
+    // #[regex("gl_LocalInvocationID")]
+    // LocalInvocationId,
+    // #[regex("gl_GlobalInvocationID")]
+    // GlobalInvocationId,
+    // #[regex("gl_SubgroupSize")]
+    // SubgroupSize,
+    // #[regex("gl_NumSubgroups")]
+    // NumSubgroups,
+    // #[regex("gl_SubgroupID")]
+    // SubgroupId,
+    // #[regex("gl_SubgroupInvocationID")]
+    // SubgroupLocalInvocationId,
+
+    // Primitive Type instruction
+    #[regex("OpTypeBool")]
+    OpTypeBool,
+    #[regex("OpTypeInt")]
+    OpTypeInt,
+
+    // High-level Type instruction
+    #[regex("OpTypeVector")]
+    OpTypeVector,
+    #[regex("OpTypeArray")]
+    OpTypeArray,
+    #[regex("OpTypeRuntimeArray")]
+    OpTypeRuntimeArray,
+    #[regex("OpTypeStruct")]
+    OpTypeStruct,
+    #[regex("OpTypePointer")]
+    OpTypePointer,
+    // #[regex("OpTypeFunction")]
+    // OpTypeFunction,
+
+    // Storage Class
+
+    // OpName is the variable name
+    #[regex("OpName")]
+    OpName,
+    // OpMemberName is the member name in the layout
+    #[regex("OpMemberName")]
+    OpMemberName,
+    #[regex("OpFUnction")]
+    OpFunction,
+    #[regex("OpFunctionEnd")]
+    OpFunctionEnd,
+
+    #[regex("OpVariable")]
+    OpVariable,
+    #[regex("OpAccessChain")]
+    OpAccessChain,
+
+    // Storage class
+    #[regex("Uniform|Input|Output")]
+    Global,
+    #[regex("Workgroup")]
+    Shared,
+    #[regex("Function")]
+    Local,
+
     #[regex("OpLabel")]
     OpLabel,
     #[regex("OpReturn")]
@@ -132,6 +194,8 @@ pub enum TokenKind {
     OpStore,
     #[regex("OpConstant")]
     OpConstant,
+    #[regex("OpConstantComposite")]
+    OpConstantComposite,
     #[regex("OpIEqual")]
     OpIEqual,
     #[regex("OpINotEqual")]
@@ -150,8 +214,8 @@ pub enum TokenKind {
     OpBranch,
     #[regex("OpBranchConditional")]
     OpBranchConditional,
-    #[regex("OpSwitch")]
-    OpSwitch,
+    // #[regex("OpSwitch")]
+    // OpSwitch,
     #[regex("OpLoopMerge")]
     OpLoopMerge,
     #[regex("OpSelectionMerge")]
@@ -162,7 +226,7 @@ pub enum TokenKind {
     OpAtomicCompareExchange,
     #[regex("OpGroupAll")]
     OpGroupAll,
-    
+
     // #[regex("Op[A-Za-z]*", |lex|
     //     let inst = lex.slice();
     //     if instruction_not_supported(inst) {
@@ -172,11 +236,6 @@ pub enum TokenKind {
     //     }
     // )]
     // OpUnsupported,
-    
-
-
-    #[regex("-- .*")]
-    Comment,
     #[regex("[_A-Za-z_][_A-Za-z0-9_]*")]
     Ident,
     #[regex("[0-9]+\\.[0-9]+")]
@@ -187,35 +246,22 @@ pub enum TokenKind {
     Bool,
     #[regex("\"[a-z]+\"")]
     String,
-    #[regex("float|uint|bool|void")]
-    Type,
+    // #[regex("v3uint|uint|bool|void")]
+    // Type,
 
     // Single-character tokens.
     #[regex("[ ]+")]
     Whitespace,
     #[regex("\n")]
     Newline,
-    #[token("{")]
-    LeftBrace,
-    #[token("}")]
-    RightBrace,
-    #[token("(")]
-    LeftParen,
-    #[token(")")]
-    RightParen,
-    #[token("[")]
-    LeftSquare,
-    #[token("]")]
-    RightSquare,
-    #[token(",")]
-    Comma,
-    #[token(";")]
+    #[regex(";")]
     SemiColon,
-    #[token(".")]
+    #[regex("\"")]
+    DoubleQuote,
+    #[regex(",")]
+    Comma,
+    #[regex(r"\.")]
     Dot,
-    #[token("\"")]
-    Quote,
-
     // Operation
     #[token("=")]
     Equal,
@@ -241,12 +287,6 @@ pub enum TokenKind {
     Slash,
     #[token("%")]
     Percent,
-    #[token("#")]
-    Pound,
-    #[token("?")]
-    Optional,
-    
-
 }
 
 impl fmt::Display for TokenKind {
@@ -264,18 +304,34 @@ impl fmt::Display for TokenKind {
             Self::Slash => "‘/’",
             Self::Equal => "‘=’",
             Self::Bang => "!",
-            Self::LeftParen => "‘(’",
-            Self::RightParen => "‘)’",
-            Self::LeftBrace => "‘{’",
-            Self::RightBrace => "‘}’",
-            Self::LeftSquare => "‘[‘",
-            Self::RightSquare => "‘]‘",
-            Self::Comment => "‘comment‘",
             Self::Comma => "‘,‘",
             Self::Dot => "‘.‘",
             Self::SemiColon => "‘;‘",
-            Self::Optional => "‘?‘",
             Self::Percent => "‘%‘",
+            Self::DoubleQuote => "‘\"‘",
+            Self::OpFunction => "OpFunction",
+            Self::OpFunctionEnd => "OpFunctionEnd",
+            Self::OpAccessChain => "OpAccessChain",
+            Self::OpLabel => "OpLabel",
+            Self::OpReturn => "OpReturn",
+            Self::OpKill => "OpKill",
+            Self::OpLoad => "OpLoad",
+            Self::OpStore => "OpStore",
+            Self::OpConstant => "OpConstant",
+            Self::OpIEqual => "OpIEqual",
+            Self::OpINotEqual => "OpINotEqual",
+            Self::OpSLessThan => "OpSLessThan",
+            Self::OpSGreaterThan => "OpSGreaterThan",
+            Self::OpSLessThanEqual => "OpSLessThanEqual",
+            Self::OpSGreaterThanEqual => "OpSGreaterThanEqual",
+            Self::OpBranch => "OpBranch",
+            Self::OpBranchConditional => "OpBranchConditional",
+            // Self::OpSwitch => "OpSwitch",
+            Self::OpLoopMerge => "OpLoopMerge",
+            Self::OpSelectionMerge => "OpSelectionMerge",
+            Self::OpAtomicExchange => "OpAtomicExchange",
+            Self::OpAtomicCompareExchange => "OpAtomicCompareExchange",
+            Self::OpGroupAll => "OpGroupAll",
             _ => unreachable!(),
         })
     }
@@ -284,18 +340,18 @@ impl fmt::Display for TokenKind {
 impl TokenKind {
     pub(crate) fn is_trivial(self) -> bool {
         match self {
-            Self::Whitespace | Self::Comment => true,
+            Self::Whitespace => true,
             _ => false,
         }
     }
 
     // todo: add more keywords
-    pub(crate) fn is_keyword(self) -> bool {
-        match self {
-            Self::Let | Self::Function => true,
-            _ => false,
-        }
-    }
+    // pub(crate) fn is_keyword(self) -> bool {
+    //     match self {
+    //         Self::Let | Self::Function => true,
+    //         _ => false,
+    //     }
+    // }
 }
 
 #[cfg(test)]
@@ -315,9 +371,117 @@ mod test {
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpConstant));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Type));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
+    }
+
+    #[test]
+    fn test_type_decl() {
+        let input = "%uint = OpTypeInt 32 0
+        ";
+        let mut lexer = TokenKind::lexer(input);
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpTypeInt));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
+    }
+
+    #[test]
+    fn test_variable_decl_uniform() {
+        let input = "%__2 = OpVariable %_ptr_Uniform_InputB Uniform
+        ";
+        let mut lexer = TokenKind::lexer(input);
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Global));
+    }
+
+    #[test]
+    fn test_variable_decl_input() {
+        let input = "%__2 = OpVariable %_ptr_Uniform_InputB Input
+        ";
+        let mut lexer = TokenKind::lexer(input);
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Global));
+    }
+
+    #[test]
+    fn test_variable_decl_output() {
+        let input = "%__2 = OpVariable %_ptr_Uniform_InputB Output
+        ";
+        let mut lexer = TokenKind::lexer(input);
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Global));
+    }
+
+    #[test]
+    fn test_variable_decl_shared() {
+        let input = "%__2 = OpVariable %_ptr_Uniform_InputB Workgroup
+        ";
+        let mut lexer = TokenKind::lexer(input);
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Shared));
+    }
+
+    #[test]
+    fn test_variable_decl_local() {
+        let input = "%__2 = OpVariable %_ptr_Uniform_InputB Function
+        ";
+        let mut lexer = TokenKind::lexer(input);
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Local));
     }
 }

@@ -11,6 +11,8 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+type Symbol = String;
+
 #[derive(Debug, PartialEq)]
 pub(crate) enum StorageClass {
     // Uniform, Input and Output in SPIR-V are all Global in our case
@@ -21,7 +23,9 @@ pub(crate) enum StorageClass {
     Local,
 }
 
-// each time we encounter a type declaration, we add it to the type table
+/// each time we encounter a type declaration, we add it to the type table
+/// for high level type like array and struct, we store the symbol of the element type
+/// for low level type like int and bool, we store the type directly
 #[derive(Debug, PartialEq)]
 pub(crate) enum SpirvType {
     Bool,
@@ -30,21 +34,21 @@ pub(crate) enum SpirvType {
         signed: bool,
     },
     Vector {
-        element: Arc<SpirvType>,
+        element: Arc<Symbol>,
         count: u32,
     },
     Array {
-        element: Arc<SpirvType>,
+        element: Arc<Symbol>,
         count: u32,
     },
     RuntimeArray {
-        element: Arc<SpirvType>,
+        element: Arc<Symbol>,
     },
     Struct {
-        members: Vec<Arc<SpirvType>>,
+        members: Vec<Symbol>,
     },
     Pointer {
-        pointee: Arc<SpirvType>,
+        pointee: Arc<Symbol>,
         storage_class: StorageClass,
     },
 }

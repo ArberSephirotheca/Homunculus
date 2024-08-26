@@ -3,7 +3,9 @@ use crate::compiler::ast::ast::{Expr, Root, Stmt};
 use crate::compiler::parse::symbol_table::*;
 use crate::compiler::parse::syntax::SyntaxNode;
 
-use super::builder::{Instruction, InstructionBuilder, Program, ProgramBuilder};
+use super::builder::{Instruction, InstructionArgumentsBuilder, InstructionBuilder, Program, ProgramBuilder};
+use super::common::{InstructionArgument, InstructionArguments, InstructionScope, InstructionValueType, VariableScope};
+use crate::codegen::common::InstructionName;
 pub struct CodegenCx {
     type_table: SpirvTypeTable,
     variable_table: SymbolTable,
@@ -33,74 +35,116 @@ impl CodegenCx {
         self.variable_table.lookup(id)
     }
 
+    /// get_from_spirv_type will return the InstructionValueType and index for the given SpirvType.
+    pub fn get_from_spirv_type(&self, spirv_type : &SpirvType) -> (InstructionValueType, i32){
+        match spirv_type{
+            SpirvType::Bool => {
+                (InstructionValueType::Bool(true), -1)
+            }
+            SpirvType::Int { width, signed } =>{
+                (InstructionValueType::Int(0), -1)
+            }
+            SpirvType::Vector { element, count } =>{
+                let real_type = self.lookup_type(element.as_str()).unwrap();
+                (self.get_from_spirv_type(real_type).0, *count as i32)
+            }
+            SpirvType::Array { element, count } =>{
+                let real_type = self.lookup_type(element.as_str()).unwrap();
+                (self.get_from_spirv_type(real_type).0, *count as i32)
+            }
+            // fixme: what to do with runtime array? the index is unknown
+            SpirvType::RuntimeArray { element } =>{
+                let real_type = self.lookup_type(element.as_str()).unwrap();
+                (self.get_from_spirv_type(real_type).0, -1)
+            }
+            // fixme: we only accept one member for now
+            // run the function recursively to get the actual type
+            SpirvType::Struct { members } =>{
+                let real_type = self.lookup_type(members[0].as_str()).unwrap();
+                self.get_from_spirv_type(real_type)
+            }
+            SpirvType::Pointer { pointee, storage_class } =>{
+                let real_type = self.lookup_type(pointee.as_str()).unwrap();
+                (self.get_from_spirv_type(real_type).0, -1)
+            }
+        }
+
+    }
+
     /// generate_code_for_expr will generate the SPIR-V code for the given expression,
     /// and the generated code will be added to the instruction builder.
-    fn generate_code_for_expr(&mut self, expr: &Expr, inst_builder: &mut InstructionBuilder){
+    fn generate_code_for_expr(&mut self, var_name : String, expr: &Expr) -> InstructionArgumentsBuilder{
         match expr {
             Expr::VariableExpr(var_expr) => {
+                let inst_args_builder = InstructionArguments::builder();
+                let inst_arg_builder = InstructionArgument::builder();
                 let ty_name = var_expr.ty_name();
                 // get the actual type of the variable
                 let spirv_type = match self.lookup_type(ty_name.as_str()) {
                     Some(ty) => ty,
                     None => panic!("Type {} not found", ty_name),
                 };
+                let (instr_value_type, idx) = self.get_from_spirv_type(spirv_type);
+                
+                // fixme: better error handling
+                let arg = inst_arg_builder
+                .name(var_name)
+                .value(instr_value_type.into())
+                .index(idx)
+                .scope(VariableScope::from_storage_class(&var_expr.storage_class()))
+                .build()
+                .unwrap();
+                
+                inst_args_builder
+                .num_args(1)
+                .push_argument(arg)
+                .scope(InstructionScope::None)
+                
             }
 
             // example: OpAccessChain
             Expr::VariableRef(var_ref) => {
-                let var_name = var_ref.name();
-                let var_info = self.lookup_variable(&var_name);
-                if let Some(var_info) = var_info {
-                    // Generate code for the variable reference
-                    // For now, we will just return the index of the variable
-                    // in the symbol table
-                    0
-                } else {
-                    panic!("Variable {} not found", var_name);
-                }
+                todo!()
             }
-            Expr::LoadExpr(load_expr) => {
-                let expr = load_expr.expr();
-                self.generate_code_for_expr(&expr.unwrap())
-            }
+            // todo: implement the rest of the expressions
             _ => unimplemented!(),
         }
     }
 
-    fn generate_code_for_stmt(&mut self, stmt: &Stmt) {
+    fn generate_code_for_stmt(&mut self, stmt: &Stmt) -> Instruction{
         let mut program = Program::builder();
         match stmt {
             Stmt::VariableDef(var_def) => {
-                let inst = Instruction::builder();
-                let var_name = var_def.name().unwrap().text().to_string();
-                let var_info = self.lookup_variable(&var_name);
+                let mut inst_builder = Instruction::builder();
+                let mut inst_args_builder = InstructionArguments::builder();
+                // let var_name = var_def.name().unwrap().text().to_string();
+                // let var_info = self.lookup_variable(&var_name);
                 // we only create a new variable if it doesn't exist and if its memory is allocated
                 // with OpVariable
-                if let Some(var_info) = var_info {
-                    // Generate code for the variable definition
-                    // For now, we will just return the index of the variable
-                    // in the symbol table
-                    let expr = var_def.value().unwrap();
-                    if let Expr::VariableExpr(var_expr) = expr {
-                        let ty = self
-                            .lookup_type(&var_expr.ty_name())
-                            .unwrap_or(panic!("Type {} not found", &var_expr.ty_name()));
-                        
-                    }
-                    let value = self.generate_code_for_expr(&expr);
-                } else {
-                    panic!("Variable {} not found", &var_name);
-                }
+                // Generate code for the variable definition
+                // For now, we will just return the index of the variable
+                // in the symbol table
+                let var_name = var_def.name().unwrap().text().to_string();
+                let expr = var_def.value().unwrap();
+                inst_args_builder = self.generate_code_for_expr(var_name,&expr );
+
+                inst_builder
+                .arguments(inst_args_builder.build().unwrap())
+                .name(InstructionName::Assignment)
+                .build()
+                .unwrap()
             }
             _ => unimplemented!(),
         }
     }
 
-    fn generate_code(&mut self, root: SyntaxNode) {
+    fn generate_code(&mut self, root: SyntaxNode) -> Program{
+        let mut program_builder = Program::builder();
         let root = Root::cast(root).unwrap();
         for stmt in root.stmts() {
-            self.generate_code_for_stmt(&stmt);
+            program_builder = program_builder.push_instruction(self.generate_code_for_stmt(&stmt));
         }
+        program_builder.build().unwrap()
     }
 }
 

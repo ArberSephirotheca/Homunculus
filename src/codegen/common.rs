@@ -1,7 +1,7 @@
 //! common is used to stored the common program information(e.g. number of blocks, subgroup size, thread numbers,...) in the codegen module.
 
 use super::constant::Constant;
-use crate::compiler::ast::ast::{Expr, Stmt};
+use crate::compiler::{ast::ast::{Expr, Stmt}, parse::symbol_table::{SpirvType, StorageClass}};
 use smallvec::SmallVec;
 
 #[derive(Debug)]
@@ -20,8 +20,8 @@ pub enum BuiltInVariable {
 
 #[derive(Debug)]
 pub enum InstructionName {
-    Expr(Expr),
-    Stmt(Stmt),
+    Assignment,
+    
 }
 
 #[derive(Debug)]
@@ -30,6 +30,16 @@ pub enum VariableScope {
     Local,
     Shared,
     Global,
+}
+
+impl VariableScope{
+    pub fn from_storage_class(storage_class: &StorageClass) -> Self {
+        match storage_class {
+            StorageClass::Global => VariableScope::Global,
+            StorageClass::Local => VariableScope::Local,
+            StorageClass::Shared => VariableScope::Shared,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -68,7 +78,7 @@ pub struct InstructionArgument {
     pub name: String,
     pub scope: VariableScope,
     pub value: InstructionValueType,
-    pub index: u32,
+    pub index: i32,
 }
 
 #[derive(Debug)]

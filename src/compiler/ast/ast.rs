@@ -251,6 +251,26 @@ impl VariableExpr {
             _ => panic!("Invalid storage class {}", scope_str),
         }
     }
+
+    // pub(crate) fn scope(&self) -> InstructionScope {
+    //     let scope_str = self
+    //         .0
+    //         .children_with_tokens()
+    //         .filter_map(|child| {
+    //             let token = child.into_token()?;
+    //             // Filter out whitespace and percent tokens
+    //             if token.kind() != TokenKind::Whitespace && token.kind() != TokenKind::Percent {
+    //                 Some(token)
+    //             } else {
+    //                 None
+    //             }
+    //         })
+    //         .take(3)
+    //         .nth(2)
+    //         .unwrap()
+    //         .text()
+    //         .to_string();
+    // }
 }
 impl VariableRef {
     pub(crate) fn name(&self) -> String {

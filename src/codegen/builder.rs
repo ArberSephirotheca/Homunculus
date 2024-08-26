@@ -1,3 +1,5 @@
+use crate::compiler::parse::symbol_table::SpirvType;
+
 use super::common::*;
 use super::constant::*;
 use eyre::{eyre, Result};
@@ -50,6 +52,7 @@ impl GlobalVarBuilder {
         self.index = Some(index);
         self
     }
+    
 
     pub fn build(self) -> Result<GlobalVar> {
         Ok(GlobalVar {
@@ -60,13 +63,6 @@ impl GlobalVarBuilder {
     }
 }
 
-#[derive(Debug)]
-pub struct InstructionArgument {
-    pub name: String,
-    pub scope: VariableScope,
-    pub value: InstructionValueType,
-    pub index: u32,
-}
 
 impl InstructionArgument {
     pub fn builder() -> InstructionArgumentBuilder {
@@ -79,7 +75,7 @@ pub struct InstructionArgumentBuilder {
     name: Option<String>,
     scope: Option<VariableScope>,
     value: Option<InstructionValueType>,
-    index: Option<u32>,
+    index: Option<i32>,
 }
 
 impl InstructionArgumentBuilder {
@@ -98,7 +94,7 @@ impl InstructionArgumentBuilder {
         self
     }
 
-    pub fn index(mut self, index: u32) -> Self {
+    pub fn index(mut self, index: i32) -> Self {
         self.index = Some(index);
         self
     }
@@ -113,12 +109,6 @@ impl InstructionArgumentBuilder {
     }
 }
 
-#[derive(Debug)]
-pub struct InstructionArguments {
-    pub num_args: u32,
-    pub scope: InstructionScope,
-    pub arguments: SmallVec<[InstructionArgument; 4]>,
-}
 
 impl InstructionArguments {
     pub fn builder() -> InstructionArgumentsBuilder {
@@ -144,7 +134,7 @@ impl InstructionArgumentsBuilder {
         self
     }
 
-    pub fn argument(mut self, argument: InstructionArgument) -> Self {
+    pub fn push_argument(mut self, argument: InstructionArgument) -> Self {
         self.arguments.push(argument);
         self
     }
@@ -164,7 +154,7 @@ impl InstructionArgumentsBuilder {
 
 #[derive(Debug)]
 pub struct Instruction {
-    pub position: u32,
+    // pub position: u32,
     pub name: InstructionName,
     pub arguments: InstructionArguments,
 }
@@ -177,16 +167,16 @@ impl Instruction {
 
 #[derive(Default)]
 pub struct InstructionBuilder {
-    position: Option<u32>,
+    // position: Option<u32>,
     name: Option<InstructionName>,
     arguments: Option<InstructionArguments>,
 }
 
 impl InstructionBuilder {
-    pub fn position(mut self, position: u32) -> Self {
-        self.position = Some(position);
-        self
-    }
+    // pub fn position(mut self, position: u32) -> Self {
+    //     self.position = Some(position);
+    //     self
+    // }
 
     pub fn name(mut self, name: InstructionName) -> Self {
         self.name = Some(name);
@@ -200,7 +190,7 @@ impl InstructionBuilder {
 
     pub fn build(self) -> Result<Instruction> {
         Ok(Instruction {
-            position: self.position.ok_or_else(|| eyre!("Position is required"))?,
+            // position: self.position.ok_or_else(|| eyre!("Position is required"))?,
             name: self.name.ok_or_else(|| eyre!("Name is required"))?,
             arguments: self
                 .arguments
@@ -300,7 +290,7 @@ impl ProgramBuilder {
         self
     }
 
-    pub fn instruction(mut self, instruction: Instruction) -> Self {
+    pub fn push_instruction(mut self, instruction: Instruction) -> Self {
         self.instructions.push(instruction);
         self
     }

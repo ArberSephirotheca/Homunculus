@@ -6,6 +6,8 @@ use crate::compiler::parse::syntax::{SyntaxElement, SyntaxNode, SyntaxToken, Tok
 #[derive(Debug)]
 pub struct Root(SyntaxNode);
 #[derive(Debug)]
+pub struct DecorateStatement(SyntaxNode);
+#[derive(Debug)]
 pub struct VariableRef(SyntaxNode);
 #[derive(Debug)]
 pub struct VariableDef(SyntaxNode);
@@ -75,6 +77,7 @@ pub enum Expr {
 
 #[derive(Debug)]
 pub enum Stmt {
+    DecorateStatement(DecorateStatement),
     VariableDef(VariableDef),
     FuncStatement(FuncStatement),
     ReturnStatement(ReturnStatement),
@@ -97,21 +100,24 @@ impl Expr {
             | TokenKind::TypeStructExpr
             | TokenKind::TypePointerExpr => Some(Self::TypeExpr(TypeExpr(node))),
             TokenKind::VariableExpr => Some(Self::VariableExpr(VariableExpr(node))),
-            TokenKind::OpAccessChain => Some(Self::VariableRef(VariableRef(node))),
-            TokenKind::OpLabel => Some(Self::LabelExpr(LabelExpr(node))),
-            TokenKind::OpLoad => Some(Self::LoadExpr(LoadExpr(node))),
-            TokenKind::OpStore => Some(Self::StoreExpr(StoreExpr(node))),
-            TokenKind::OpConstant => Some(Self::ConstExpr(ConstExpr(node))),
-            TokenKind::OpIEqual => Some(Self::EqualExpr(EqualExpr(node))),
-            TokenKind::OpINotEqual => Some(Self::NotEqualExpr(NotEqualExpr(node))),
-            TokenKind::OpSGreaterThan => Some(Self::GreaterThanExpr(GreaterThanExpr(node))),
-            TokenKind::OpSGreaterThanEqual => {
+            TokenKind::AccessChainExpr => Some(Self::VariableRef(VariableRef(node))),
+            TokenKind::LabelExpr => Some(Self::LabelExpr(LabelExpr(node))),
+            TokenKind::LoadExpr => Some(Self::LoadExpr(LoadExpr(node))),
+            TokenKind::StoreExpr => Some(Self::StoreExpr(StoreExpr(node))),
+            TokenKind::ConstantExpr => Some(Self::ConstExpr(ConstExpr(node))),
+            // TokenKind::ConstantCompositeExpr => Some(Self::ConstExpr(ConstExpr(node))),
+            TokenKind::EqualExpr => Some(Self::EqualExpr(EqualExpr(node))),
+            TokenKind::NotEqualExpr => Some(Self::NotEqualExpr(NotEqualExpr(node))),
+            TokenKind::GreaterThanExpr => Some(Self::GreaterThanExpr(GreaterThanExpr(node))),
+            TokenKind::GreaterEqualThanExpr => {
                 Some(Self::GreaterThanEqualExpr(GreaterThanEqualExpr(node)))
             }
-            TokenKind::OpSLessThan => Some(Self::LessThanExpr(LessThanExpr(node))),
-            TokenKind::OpSLessThanEqual => Some(Self::LessThanEqualExpr(LessThanEqualExpr(node))),
-            TokenKind::OpAtomicExchange => Some(Self::AtomicExchangeExpr(AtomicExchangeExpr(node))),
-            TokenKind::OpAtomicCompareExchange => Some(Self::AtomicCompareExchangeExpr(
+            TokenKind::LessThanExpr => Some(Self::LessThanExpr(LessThanExpr(node))),
+            TokenKind::LessThanEqualExpr => Some(Self::LessThanEqualExpr(LessThanEqualExpr(node))),
+            TokenKind::AtomicExchangeExpr => {
+                Some(Self::AtomicExchangeExpr(AtomicExchangeExpr(node)))
+            }
+            TokenKind::AtomicCompareExchangeExpr => Some(Self::AtomicCompareExchangeExpr(
                 AtomicCompareExchangeExpr(node),
             )),
             _ => None,
@@ -122,6 +128,7 @@ impl Expr {
 impl Stmt {
     pub(crate) fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
+            TokenKind::DecorateStatement => Some(Self::DecorateStatement(DecorateStatement(node))),
             TokenKind::VariableDef => Some(Self::VariableDef(VariableDef(node))),
             TokenKind::OpReturn | TokenKind::OpKill => {
                 Some(Self::ReturnStatement(ReturnStatement(node)))
@@ -196,11 +203,11 @@ impl TypeExpr {
                 // fixme: error handling
                 let inner_ty_symbol = &tokens[1];
                 let count = &tokens[2];
-                println!("{:#?}", tokens);
-                println!("inner_ty_symbol: {:#?}", inner_ty_symbol);
-                println!("count: {:#?}", count);
-                SpirvType::Vector { element: inner_ty_symbol.text().to_string(), count: count.text().parse().unwrap() }
-            },
+                SpirvType::Vector {
+                    element: inner_ty_symbol.text().to_string(),
+                    count: count.text().parse().unwrap(),
+                }
+            }
             TokenKind::OpTypeArray => todo!(),
             TokenKind::OpTypeRuntimeArray => todo!(),
             TokenKind::OpTypeStruct => todo!(),
@@ -210,92 +217,60 @@ impl TypeExpr {
                 let pointee = &tokens[2];
                 SpirvType::Pointer {
                     pointee: pointee.text().to_string(),
-                    storage_class: match storage_class.text().to_string().as_str() {
-                        "Uniform" | "Input" | "Output" => StorageClass::Global,
-                        "Workgroup" => StorageClass::Shared,
-                        "Function" => StorageClass::Local,
+                    storage_class: match storage_class.kind() {
+                        TokenKind::Global => StorageClass::Global,
+                        TokenKind::Shared => StorageClass::Shared,
+                        TokenKind::Local => StorageClass::Local,
                         _ => panic!("Invalid storage class {:#?}", storage_class),
                     },
                 }
-            },
+            }
             _ => panic!("Invalid type {}", self.0.first_token().unwrap().text()),
         }
     }
-    pub fn name(&self) -> String {
-        self.0.first_token().unwrap().text().to_string()
+    pub fn name(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::OpTypeBool || x.kind() == TokenKind::OpTypeInt)
     }
 }
 
 impl VariableExpr {
-    pub(crate) fn ty_name(&self) -> String {
+    pub(crate) fn ty_name(&self) -> Option<SyntaxToken> {
         self.0
             .children_with_tokens()
-            .filter_map(|child| {
-                let token = child.into_token()?;
-                // Filter out whitespace and percent tokens
-                if token.kind() != TokenKind::Whitespace && token.kind() != TokenKind::Percent {
-                    Some(token)
-                } else {
-                    None
-                }
-            })
-            .take(2)
-            .nth(1)
-            .unwrap()
-            .text()
-            .to_string()
+            .filter_map(|child| child.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
     }
 
-    pub(crate) fn storage_class(&self) -> StorageClass {
-        let scope_str = self
+    pub(crate) fn storage_class(&self) -> Option<StorageClass> {
+        let token = self
             .0
             .children_with_tokens()
-            .filter_map(|child| {
-                let token = child.into_token()?;
-                // Filter out whitespace and percent tokens
-                if token.kind() != TokenKind::Whitespace && token.kind() != TokenKind::Percent {
-                    Some(token)
-                } else {
-                    None
-                }
-            })
-            .take(3)
-            .nth(2)
-            .unwrap()
-            .text()
-            .to_string();
-        // fixme: error handling
-        match scope_str.as_str() {
-            "Uniform" | "Input" | "Output" => StorageClass::Global,
-            "Workgroup" => StorageClass::Shared,
-            "Function" => StorageClass::Local,
-            _ => panic!("Invalid storage class {}", scope_str),
+            .filter_map(|child| child.into_token())
+            .find(|x| {
+                x.kind() == TokenKind::Global
+                    || x.kind() == TokenKind::Shared
+                    || x.kind() == TokenKind::Local
+            });
+        match token {
+            Some(token) => match token.kind() {
+                TokenKind::Global => Some(StorageClass::Global),
+                TokenKind::Shared => Some(StorageClass::Shared),
+                TokenKind::Local => Some(StorageClass::Local),
+                _ => None,
+            },
+            None => None,
         }
     }
-
-    // pub(crate) fn scope(&self) -> InstructionScope {
-    //     let scope_str = self
-    //         .0
-    //         .children_with_tokens()
-    //         .filter_map(|child| {
-    //             let token = child.into_token()?;
-    //             // Filter out whitespace and percent tokens
-    //             if token.kind() != TokenKind::Whitespace && token.kind() != TokenKind::Percent {
-    //                 Some(token)
-    //             } else {
-    //                 None
-    //             }
-    //         })
-    //         .take(3)
-    //         .nth(2)
-    //         .unwrap()
-    //         .text()
-    //         .to_string();
-    // }
 }
 impl VariableRef {
-    pub(crate) fn name(&self) -> String {
-        self.0.first_token().unwrap().text().to_string()
+    pub(crate) fn name(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
     }
 }
 
@@ -305,7 +280,7 @@ impl VariableDef {
         self.0
             .children_with_tokens()
             .filter_map(|x| x.into_token())
-            .find(|x| x.kind() == TokenKind::Ident)
+            .find(|x| x.kind() == TokenKind::Ident || x.kind() == TokenKind::Int)
     }
 
     pub(crate) fn value(&self) -> Option<Expr> {
@@ -313,15 +288,24 @@ impl VariableDef {
     }
 }
 
-impl LabelExpr {
-    pub(crate) fn expr(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
-    }
-}
-
 impl LoadExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
+    }
+
+    pub(crate) fn ty(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
+
+    pub(crate) fn pointer(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|token| token.kind() == TokenKind::Ident)
+            .nth(1)
     }
 }
 
@@ -385,6 +369,32 @@ impl AtomicCompareExchangeExpr {
     }
 }
 
+impl DecorateStatement {
+    pub(crate) fn name(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
+
+    pub(crate) fn built_in_var(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| {
+                x.kind() == TokenKind::NumWorkgroups
+                    || x.kind() == TokenKind::WorkgroupSize
+                    || x.kind() == TokenKind::WorkgroupId
+                    || x.kind() == TokenKind::LocalInvocationId
+                    || x.kind() == TokenKind::GlobalInvocationId
+                    || x.kind() == TokenKind::SubgroupSize
+                    || x.kind() == TokenKind::NumSubgroups
+                    || x.kind() == TokenKind::SubgroupId
+                    || x.kind() == TokenKind::SubgroupLocalInvocationId
+            })
+    }
+}
+
 impl ReturnStatement {
     // todo: implement
 }
@@ -438,7 +448,7 @@ mod test {
             crate::compiler::ast::ast::Stmt::Expr(Expr::TypeExpr(type_expr)) => type_expr,
             _ => panic!("Expected variable definition"),
         };
-        assert_eq!(type_expr.name(), "OpTypeInt");
+        assert_eq!(type_expr.name().unwrap().text(), "OpTypeInt");
         assert_eq!(
             type_expr.ty(),
             SpirvType::Int {
@@ -462,7 +472,7 @@ mod test {
             }
             _ => panic!("Expected variable definition"),
         };
-        assert_eq!(variable_expr.ty_name(), expected_name);
-        assert_eq!(variable_expr.storage_class(), StorageClass::Global);
+        assert_eq!(variable_expr.ty_name().unwrap().text(), expected_name);
+        assert_eq!(variable_expr.storage_class().unwrap(), StorageClass::Global);
     }
 }

@@ -8,6 +8,8 @@ use crate::compiler::parse::{
 pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
     if p.at(TokenKind::Percent) {
         Some(variable_def(p))
+    } else if p.at(TokenKind::OpDecorate) {
+        Some(op_decorate_stmt(p))
     } else if p.at(TokenKind::OpFunction) {
         Some(op_function_expr(p))
     } else if p.at(TokenKind::OpFunctionEnd) {
@@ -78,6 +80,34 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
         // todo: add more info
         None
     }
+}
+
+/// example: OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
+/// todo: handle non-built-in decoration
+fn op_decorate_stmt(p: &mut Parser) -> CompletedMarker {
+    let m = p.start();
+    // skip OpDecorate token
+    p.bump();
+    p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::BuiltIn);
+    if p.at(TokenKind::GlobalInvocationId)
+        || p.at(TokenKind::LocalInvocationId)
+        || p.at(TokenKind::WorkgroupId)
+        || p.at(TokenKind::NumWorkgroups)
+        || p.at(TokenKind::WorkgroupSize)
+        || p.at(TokenKind::GlobalInvocationId)
+        || p.at(TokenKind::SubgroupSize)
+        || p.at(TokenKind::NumSubgroups)
+        || p.at(TokenKind::SubgroupId)
+        || p.at(TokenKind::SubgroupLocalInvocationId)
+    {
+        p.bump();
+    } else {
+        p.error();
+    }
+    p.expect(TokenKind::Newline);
+    m.complete(p, TokenKind::DecorateStatement)
 }
 
 /// example: OpFunction %void None %1
@@ -181,7 +211,7 @@ fn op_type_pointer_expr(p: &mut Parser) -> CompletedMarker {
     // accept Uniform, Input, Output, Workgroup, Function
     if p.at(TokenKind::Global) || p.at(TokenKind::Shared) || p.at(TokenKind::Local) {
         p.bump();
-    } else{
+    } else {
         p.error();
     }
     p.expect(TokenKind::Percent);
@@ -199,7 +229,7 @@ fn op_variable_expr(p: &mut Parser) -> CompletedMarker {
     // it can be Uniform, Input, Output, Workgroup, Function
     if p.at(TokenKind::Global) || p.at(TokenKind::Shared) || p.at(TokenKind::Local) {
         p.bump();
-    }else{
+    } else {
         p.error();
     }
     p.expect(TokenKind::Newline);
@@ -277,9 +307,12 @@ fn op_load_expr(p: &mut Parser) -> CompletedMarker {
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Aligned);
-    p.expect(TokenKind::Int);
-    p.expect(TokenKind::Newline);
+    if p.at(TokenKind::Aligned) {
+        p.bump();
+        p.expect(TokenKind::Int);
+    } else {
+        p.expect(TokenKind::Newline);
+    }
     m.complete(p, TokenKind::LoadExpr)
 }
 
@@ -497,7 +530,11 @@ fn variable_def(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     p.expect(TokenKind::Percent);
 
-    p.expect(TokenKind::Ident);
+    if p.at(TokenKind::Ident) || p.at(TokenKind::Int) {
+        p.bump();
+    } else {
+        p.error();
+    }
 
     p.expect(TokenKind::Equal);
 

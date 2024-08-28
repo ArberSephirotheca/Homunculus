@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 type Symbol = String;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum StorageClass {
     // Uniform, Input and Output in SPIR-V are all Global in our case
     Global,
@@ -23,11 +23,44 @@ pub(crate) enum StorageClass {
     Local,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) enum BuiltInVariable {
+    NumWorkgroups,
+    WorkgroupSize,
+    WorkgroupId,
+    LocalInvocationId,
+    GlobalInvocationId,
+    SubgroupSize,
+    NumSubgroups,
+    SubgroupId,
+    SubgroupLocalInvocationId,
+}
+
+impl BuiltInVariable {
+    pub fn cast(token: TokenKind) -> Self {
+        match token {
+            TokenKind::NumWorkgroups => BuiltInVariable::NumWorkgroups,
+            TokenKind::WorkgroupSize => BuiltInVariable::WorkgroupSize,
+            TokenKind::WorkgroupId => BuiltInVariable::WorkgroupId,
+            TokenKind::LocalInvocationId => BuiltInVariable::LocalInvocationId,
+            TokenKind::GlobalInvocationId => BuiltInVariable::GlobalInvocationId,
+            TokenKind::SubgroupSize => BuiltInVariable::SubgroupSize,
+            TokenKind::NumSubgroups => BuiltInVariable::NumSubgroups,
+            TokenKind::SubgroupId => BuiltInVariable::SubgroupId,
+            TokenKind::SubgroupLocalInvocationId => BuiltInVariable::SubgroupLocalInvocationId,
+            _ => panic!("Invalid BuiltInVariable {}", token),
+        }
+    }
+}
+
 /// each time we encounter a type declaration, we add it to the type table
 /// for high level type like array and struct, we store the symbol of the element type
 /// for low level type like int and bool, we store the type directly
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum SpirvType {
+    // BuiltIn {
+    //     built_in: BuiltInVariable,
+    // },
     Bool,
     Int {
         width: u32,
@@ -73,9 +106,46 @@ impl SpirvTypeTable {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct VariableInfo {
     pub ty: SpirvType,
     pub storage_class: StorageClass,
+    pub built_in: Option<BuiltInVariable>,
+}
+
+impl VariableInfo {
+    pub fn new(
+        ty: SpirvType,
+        storage_class: StorageClass,
+        built_in: Option<BuiltInVariable>,
+    ) -> Self {
+        Self {
+            ty,
+            storage_class,
+            built_in,
+        }
+    }
+
+    pub fn is_builtin(&self) -> bool {
+        self.built_in.is_some()
+    }
+
+    pub fn get_builtin(&self) -> Option<BuiltInVariable> {
+        self.built_in.clone()
+    }
+    pub fn get_ty(&self) -> SpirvType {
+        self.ty.clone()
+    }
+
+    pub fn get_storage_class(&self) -> StorageClass {
+        self.storage_class.clone()
+    }
+}
+
+pub struct VariableInfoBuilder {
+    ty: Option<SpirvType>,
+    storage_class: Option<StorageClass>,
+    built_in: Option<BuiltInVariable>,
 }
 
 // Represents a scope level in the symbol table
@@ -114,15 +184,15 @@ impl SymbolTable {
     }
 
     // Lookup a variable by name, searching from the innermost scope outward
-    pub fn lookup(&self, name: &str) -> Option<&VariableInfo> {
+    pub fn lookup(&self, name: &str) -> Option<VariableInfo> {
         if let Some(var) = self.local.get(name) {
-            return Some(var);
+            return Some(var.clone());
         }
         if let Some(var) = self.shared.get(name) {
-            return Some(var);
+            return Some(var.clone());
         }
         if let Some(var) = self.global.get(name) {
-            return Some(var);
+            return Some(var.clone());
         }
         None
     }

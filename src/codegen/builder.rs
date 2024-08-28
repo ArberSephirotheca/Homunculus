@@ -33,7 +33,7 @@ impl ConstantBuilder {
 #[derive(Default)]
 pub struct GlobalVarBuilder {
     name: Option<String>,
-    value: Option<InstructionValueType>,
+    value: Option<InstructionValue>,
     index: Option<u32>,
 }
 
@@ -43,7 +43,7 @@ impl GlobalVarBuilder {
         self
     }
 
-    pub fn value(mut self, value: InstructionValueType) -> Self {
+    pub fn value(mut self, value: InstructionValue) -> Self {
         self.value = Some(value);
         self
     }
@@ -72,7 +72,7 @@ impl InstructionArgument {
 pub struct InstructionArgumentBuilder {
     name: Option<String>,
     scope: Option<VariableScope>,
-    value: Option<InstructionValueType>,
+    value: Option<InstructionValue>,
     index: Option<i32>,
 }
 
@@ -87,7 +87,7 @@ impl InstructionArgumentBuilder {
         self
     }
 
-    pub fn value(mut self, value: InstructionValueType) -> Self {
+    pub fn value(mut self, value: InstructionValue) -> Self {
         self.value = Some(value);
         self
     }

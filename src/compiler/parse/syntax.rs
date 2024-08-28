@@ -2,6 +2,7 @@ use logos::{Filter, Logos};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::fmt;
+use std::ops::BitOr;
 
 #[derive(Debug, Hash, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum AsukaLanguage {}
@@ -74,6 +75,8 @@ pub enum TokenKind {
     VariableDef,
     FunctionExpr,
 
+    DecorateStatement,
+
     // Control flow Statement
     BranchConditionalStatement,
     BranchStatement,
@@ -117,24 +120,30 @@ pub enum TokenKind {
     Statement,
     Error,
 
-    // #[regex("gl_NumWorkGroups")]
-    // NumWorkgroups,
-    // #[regex("gl_WorkGroupSize")]
-    // WorkgroupSize,
-    // #[regex("gl_WorkGroupID")]
-    // WorkgroupId,
-    // #[regex("gl_LocalInvocationID")]
-    // LocalInvocationId,
-    // #[regex("gl_GlobalInvocationID")]
-    // GlobalInvocationId,
-    // #[regex("gl_SubgroupSize")]
-    // SubgroupSize,
-    // #[regex("gl_NumSubgroups")]
-    // NumSubgroups,
-    // #[regex("gl_SubgroupID")]
-    // SubgroupId,
-    // #[regex("gl_SubgroupInvocationID")]
-    // SubgroupLocalInvocationId,
+    #[regex("NumWorkgroups")]
+    NumWorkgroups,
+    #[regex("WorkgroupSize")]
+    WorkgroupSize,
+    #[regex("WorkgroupId")]
+    WorkgroupId,
+    #[regex("LocalInvocationId")]
+    LocalInvocationId,
+    #[regex("GlobalInvocationId")]
+    GlobalInvocationId,
+    #[regex("SubgroupSize")]
+    SubgroupSize,
+    #[regex("NumSubgroups")]
+    NumSubgroups,
+    #[regex("SubgroupId")]
+    SubgroupId,
+    #[regex("SubgroupLocalInvocationId")]
+    SubgroupLocalInvocationId,
+
+    #[regex("OpDecorate")]
+    OpDecorate,
+
+    #[regex("BuiltIn")]
+    BuiltIn,
 
     // Primitive Type instruction
     #[regex("OpTypeBool")]
@@ -332,6 +341,32 @@ impl fmt::Display for TokenKind {
             Self::OpAtomicExchange => "OpAtomicExchange",
             Self::OpAtomicCompareExchange => "OpAtomicCompareExchange",
             Self::OpGroupAll => "OpGroupAll",
+            Self::OpVariable => "OpVariable",
+            Self::OpConstantComposite => "OpConstantComposite",
+            Self::OpDecorate => "OpDecorate",
+            Self::OpTypeBool => "OpTypeBool",
+            Self::OpTypeInt => "OpTypeInt",
+            Self::OpTypeVector => "OpTypeVector",
+            Self::OpTypeArray => "OpTypeArray",
+            Self::OpTypeRuntimeArray => "OpTypeRuntimeArray",
+            Self::OpTypeStruct => "OpTypeStruct",
+            Self::OpTypePointer => "OpTypePointer",
+            Self::BuiltIn => "BuiltIn",
+            Self::NumWorkgroups => "NumWorkgroups",
+            Self::WorkgroupSize => "WorkgroupSize",
+            Self::WorkgroupId => "WorkgroupId",
+            Self::LocalInvocationId => "LocalInvocationId",
+            Self::GlobalInvocationId => "GlobalInvocationId",
+            Self::SubgroupSize => "SubgroupSize",
+            Self::NumSubgroups => "NumSubgroups",
+            Self::SubgroupId => "SubgroupId",
+            Self::SubgroupLocalInvocationId => "SubgroupLocalInvocationId",
+            Self::Global => "Global",
+            Self::Shared => "Shared",
+            Self::Local => "Local",
+            Self::Root => "Root",
+            Self::Statement => "Statement",
+            Self::Error => "Error",
             _ => unreachable!(),
         })
     }

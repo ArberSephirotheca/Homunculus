@@ -3,23 +3,23 @@
 use super::constant::Constant;
 use crate::compiler::{
     ast::ast::{Expr, Stmt},
-    parse::symbol_table::{SpirvType, StorageClass},
+    parse::symbol_table::{BuiltInVariable, SpirvType, StorageClass, VariableInfo},
 };
 use smallvec::SmallVec;
 
-#[derive(Debug)]
-pub enum BuiltInVariable {
-    NumWorkgroups,
-    WorkgroupSize,
-    WorkgroupId,
-    LocalInvocationId,
-    GlobalInvocationId,
-    SubgroupSize,
-    NumSubgroups,
-    SubgroupId,
-    SubgroupLocalInvocationId,
-    // There are more built-in variables, but currently we only support these
-}
+// #[derive(Debug)]
+// pub enum BuiltInVariable {
+//     NumWorkgroups,
+//     WorkgroupSize,
+//     WorkgroupId,
+//     LocalInvocationId,
+//     GlobalInvocationId,
+//     SubgroupSize,
+//     NumSubgroups,
+//     SubgroupId,
+//     SubgroupLocalInvocationId,
+//     // There are more built-in variables, but currently we only support these
+// }
 
 #[derive(Debug)]
 pub enum InstructionName {
@@ -28,14 +28,14 @@ pub enum InstructionName {
 
 #[derive(Debug, PartialEq)]
 pub enum VariableScope {
-    Literal,
+    Intermediate,
     Local,
     Shared,
     Global,
 }
 
 impl VariableScope {
-    pub fn from_storage_class(storage_class: &StorageClass) -> Self {
+    pub fn cast(storage_class: &StorageClass) -> Self {
         match storage_class {
             StorageClass::Global => VariableScope::Global,
             StorageClass::Local => VariableScope::Local,
@@ -55,7 +55,39 @@ pub enum InstructionScope {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum InstructionValueType {
+pub enum InstructionBuiltInVariable {
+    NumWorkgroups,
+    WorkgroupSize,
+    WorkgroupId,
+    LocalInvocationId,
+    GlobalInvocationId,
+    SubgroupSize,
+    NumSubgroups,
+    SubgroupId,
+    SubgroupLocalInvocationId,
+}
+
+impl InstructionBuiltInVariable {
+    pub(crate) fn cast(var: BuiltInVariable) -> Self {
+        match var {
+            BuiltInVariable::NumWorkgroups => InstructionBuiltInVariable::NumWorkgroups,
+            BuiltInVariable::WorkgroupSize => InstructionBuiltInVariable::WorkgroupSize,
+            BuiltInVariable::WorkgroupId => InstructionBuiltInVariable::WorkgroupId,
+            BuiltInVariable::LocalInvocationId => InstructionBuiltInVariable::LocalInvocationId,
+            BuiltInVariable::GlobalInvocationId => InstructionBuiltInVariable::GlobalInvocationId,
+            BuiltInVariable::SubgroupSize => InstructionBuiltInVariable::SubgroupSize,
+            BuiltInVariable::NumSubgroups => InstructionBuiltInVariable::NumSubgroups,
+            BuiltInVariable::SubgroupId => InstructionBuiltInVariable::SubgroupId,
+            BuiltInVariable::SubgroupLocalInvocationId => {
+                InstructionBuiltInVariable::SubgroupLocalInvocationId
+            }
+        }
+    }
+}
+#[derive(Debug, PartialEq)]
+pub enum InstructionValue {
+    Pointer(String, VariableInfo),
+    BuiltIn(InstructionBuiltInVariable),
     Bool(bool),
     String(String),
     Int(i32),
@@ -71,7 +103,7 @@ pub enum Scheduler {
 #[derive(Debug)]
 pub struct GlobalVar {
     pub name: String,
-    pub value: InstructionValueType,
+    pub value: InstructionValue,
     pub index: u32,
 }
 
@@ -79,7 +111,7 @@ pub struct GlobalVar {
 pub struct InstructionArgument {
     pub name: String,
     pub scope: VariableScope,
-    pub value: InstructionValueType,
+    pub value: InstructionValue,
     pub index: i32,
 }
 

@@ -1,4 +1,5 @@
 use rowan::TokenAtOffset;
+use smallvec::smallvec;
 
 use crate::compiler::parse::symbol_table::{SpirvType, StorageClass};
 use crate::compiler::parse::syntax::{SyntaxElement, SyntaxNode, SyntaxToken, TokenKind};
@@ -23,7 +24,7 @@ pub struct LabelExpr(SyntaxNode);
 #[derive(Debug)]
 pub struct LoadExpr(SyntaxNode);
 #[derive(Debug)]
-pub struct StoreExpr(SyntaxNode);
+pub struct StoreStatement(SyntaxNode);
 #[derive(Debug)]
 pub struct ConstExpr(SyntaxNode);
 #[derive(Debug)]
@@ -63,7 +64,6 @@ pub enum Expr {
     VariableRef(VariableRef),
     LabelExpr(LabelExpr),
     LoadExpr(LoadExpr),
-    StoreExpr(StoreExpr),
     ConstExpr(ConstExpr),
     EqualExpr(EqualExpr),
     NotEqualExpr(NotEqualExpr),
@@ -79,6 +79,7 @@ pub enum Expr {
 pub enum Stmt {
     DecorateStatement(DecorateStatement),
     VariableDef(VariableDef),
+    StoreStatement(StoreStatement),
     FuncStatement(FuncStatement),
     ReturnStatement(ReturnStatement),
     BranchConditionalStatement(BranchConditionalStatement),
@@ -103,7 +104,6 @@ impl Expr {
             TokenKind::AccessChainExpr => Some(Self::VariableRef(VariableRef(node))),
             TokenKind::LabelExpr => Some(Self::LabelExpr(LabelExpr(node))),
             TokenKind::LoadExpr => Some(Self::LoadExpr(LoadExpr(node))),
-            TokenKind::StoreExpr => Some(Self::StoreExpr(StoreExpr(node))),
             TokenKind::ConstantExpr => Some(Self::ConstExpr(ConstExpr(node))),
             // TokenKind::ConstantCompositeExpr => Some(Self::ConstExpr(ConstExpr(node))),
             TokenKind::EqualExpr => Some(Self::EqualExpr(EqualExpr(node))),
@@ -133,6 +133,8 @@ impl Stmt {
             TokenKind::OpReturn | TokenKind::OpKill => {
                 Some(Self::ReturnStatement(ReturnStatement(node)))
             }
+            TokenKind::StoreStatement => Some(Self::StoreStatement(StoreStatement(node))),
+
             TokenKind::BranchConditionalStatement => Some(Self::BranchConditionalStatement(
                 BranchConditionalStatement(node),
             )),
@@ -170,7 +172,7 @@ impl TypeExpr {
             .filter_map(|child| {
                 let token = child.into_token()?;
                 // Filter out whitespace tokens and percent
-                if token.kind() != TokenKind::Whitespace && token.kind() != TokenKind::Percent {
+                if token.kind() != TokenKind::Whitespace {
                     Some(token)
                 } else {
                     None
@@ -214,15 +216,25 @@ impl TypeExpr {
             TokenKind::OpTypePointer => {
                 println!("{:#?}", tokens);
                 let storage_class = &tokens[1];
-                let pointee = &tokens[2];
+                let ty = &tokens[2];
                 SpirvType::Pointer {
-                    pointee: pointee.text().to_string(),
+                    ty: ty.text().to_string(),
                     storage_class: match storage_class.kind() {
                         TokenKind::Global => StorageClass::Global,
                         TokenKind::Shared => StorageClass::Shared,
                         TokenKind::Local => StorageClass::Local,
                         _ => panic!("Invalid storage class {:#?}", storage_class),
                     },
+                }
+            }
+            TokenKind::AccessChainExpr => {
+                let ty = &tokens[1];
+                let base = &tokens[2];
+                let index = &tokens[3];
+                SpirvType::AccessChain {
+                    ty: ty.text().to_string(),
+                    base: base.text().to_string(),
+                    index: index.text().to_string(),
                 }
             }
             _ => panic!("Invalid type {}", self.0.first_token().unwrap().text()),
@@ -266,11 +278,27 @@ impl VariableExpr {
     }
 }
 impl VariableRef {
-    pub(crate) fn name(&self) -> Option<SyntaxToken> {
+    pub(crate) fn ty(&self) -> Option<SyntaxToken> {
         self.0
             .children_with_tokens()
             .filter_map(|x| x.into_token())
             .find(|x| x.kind() == TokenKind::Ident)
+    }
+
+    pub(crate) fn base_var_name(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Ident)
+            .nth(1)
+    }
+
+    pub(crate) fn index_name(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Ident)
+            .nth(2)
     }
 }
 
@@ -280,7 +308,7 @@ impl VariableDef {
         self.0
             .children_with_tokens()
             .filter_map(|x| x.into_token())
-            .find(|x| x.kind() == TokenKind::Ident || x.kind() == TokenKind::Int)
+            .find(|x| x.kind() == TokenKind::Ident)
     }
 
     pub(crate) fn value(&self) -> Option<Expr> {
@@ -309,9 +337,23 @@ impl LoadExpr {
     }
 }
 
-impl StoreExpr {
+impl StoreStatement {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
+    }
+    pub(crate) fn pointer(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
+
+    pub(crate) fn object(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|token| token.kind() == TokenKind::Ident)
+            .nth(1)
     }
 }
 
@@ -461,7 +503,7 @@ mod test {
     #[test]
     fn check_variable_expr() {
         let input = "OpVariable %_ptr_Uniform_Output Uniform";
-        let expected_name = "_ptr_Uniform_Output";
+        let expected_name = "%_ptr_Uniform_Output";
         let parse = parse(input);
         let syntax = parse.syntax();
         let root = Root::cast(syntax).unwrap();

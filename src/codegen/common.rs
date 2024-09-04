@@ -24,6 +24,7 @@ use smallvec::SmallVec;
 #[derive(Debug)]
 pub enum InstructionName {
     Assignment,
+    Store,
 }
 
 #[derive(Debug, PartialEq)]
@@ -32,6 +33,7 @@ pub enum VariableScope {
     Local,
     Shared,
     Global,
+    Literal,
 }
 
 impl VariableScope {
@@ -40,6 +42,7 @@ impl VariableScope {
             StorageClass::Global => VariableScope::Global,
             StorageClass::Local => VariableScope::Local,
             StorageClass::Shared => VariableScope::Shared,
+            StorageClass::Intermediate => VariableScope::Intermediate,
         }
     }
 }
@@ -86,6 +89,7 @@ impl InstructionBuiltInVariable {
 }
 #[derive(Debug, PartialEq)]
 pub enum InstructionValue {
+    None,
     Pointer(String, VariableInfo),
     BuiltIn(InstructionBuiltInVariable),
     Bool(bool),
@@ -104,7 +108,7 @@ pub enum Scheduler {
 pub struct GlobalVar {
     pub name: String,
     pub value: InstructionValue,
-    pub index: u32,
+    pub index: InstructionValue,
 }
 
 #[derive(Debug)]
@@ -112,7 +116,7 @@ pub struct InstructionArgument {
     pub name: String,
     pub scope: VariableScope,
     pub value: InstructionValue,
-    pub index: i32,
+    pub index: InstructionValue,
 }
 
 #[derive(Debug)]

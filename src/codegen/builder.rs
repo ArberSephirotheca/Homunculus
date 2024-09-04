@@ -34,7 +34,7 @@ impl ConstantBuilder {
 pub struct GlobalVarBuilder {
     name: Option<String>,
     value: Option<InstructionValue>,
-    index: Option<u32>,
+    index: Option<InstructionValue>,
 }
 
 impl GlobalVarBuilder {
@@ -48,7 +48,7 @@ impl GlobalVarBuilder {
         self
     }
 
-    pub fn index(mut self, index: u32) -> Self {
+    pub fn index(mut self, index: InstructionValue) -> Self {
         self.index = Some(index);
         self
     }
@@ -73,7 +73,7 @@ pub struct InstructionArgumentBuilder {
     name: Option<String>,
     scope: Option<VariableScope>,
     value: Option<InstructionValue>,
-    index: Option<i32>,
+    index: Option<InstructionValue>,
 }
 
 impl InstructionArgumentBuilder {
@@ -92,7 +92,7 @@ impl InstructionArgumentBuilder {
         self
     }
 
-    pub fn index(mut self, index: i32) -> Self {
+    pub fn index(mut self, index: InstructionValue) -> Self {
         self.index = Some(index);
         self
     }

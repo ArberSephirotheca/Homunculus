@@ -85,6 +85,7 @@ pub enum TokenKind {
     // Statement
     ReturnStatement,
     FunctionEndStatement,
+    StoreStatement,
 
     // merge instruction
     LoopMergeStatement,
@@ -97,7 +98,6 @@ pub enum TokenKind {
     ConstantExpr,
     ConstantCompositeExpr,
     LoadExpr,
-    StoreExpr,
     EqualExpr,
     NotEqualExpr,
     GreaterThanExpr,
@@ -150,6 +150,8 @@ pub enum TokenKind {
     OpTypeBool,
     #[regex("OpTypeInt")]
     OpTypeInt,
+    #[regex("OpTypeVoid")]
+    OpTypeVoid,
 
     // High-level Type instruction
     #[regex("OpTypeVector")]
@@ -209,13 +211,13 @@ pub enum TokenKind {
     OpIEqual,
     #[regex("OpINotEqual")]
     OpINotEqual,
-    #[regex("OpSLessThan")]
+    #[regex("OpSLessThan|OpULessThan")]
     OpSLessThan,
-    #[regex("OpSGreaterThan")]
+    #[regex("OpSGreaterThan|OpUGreaterThan")]
     OpSGreaterThan,
-    #[regex("OpSLessThanEqual")]
+    #[regex("OpSLessThanEqual|OpULessThanEqual")]
     OpSLessThanEqual,
-    #[regex("OpSGreaterThanEqual")]
+    #[regex("OpSGreaterThanEqual|OpUGreaterThanEqual")]
     OpSGreaterThanEqual,
     #[regex("Aligned")]
     Aligned,
@@ -245,7 +247,7 @@ pub enum TokenKind {
     //     }
     // )]
     // OpUnsupported,
-    #[regex("[_A-Za-z_][_A-Za-z0-9_]*")]
+    #[regex("%[_A-Za-z_][_A-Za-z0-9_]*|%[0-9]+")]
     Ident,
     #[regex("[0-9]+\\.[0-9]+")]
     Float,
@@ -294,8 +296,8 @@ pub enum TokenKind {
     Star,
     #[token("/")]
     Slash,
-    #[token("%")]
-    Percent,
+    // #[token("%")]
+    // Percent,
 }
 
 impl fmt::Display for TokenKind {
@@ -316,7 +318,7 @@ impl fmt::Display for TokenKind {
             Self::Comma => "‘,‘",
             Self::Dot => "‘.‘",
             Self::SemiColon => "‘;‘",
-            Self::Percent => "‘%‘",
+            // Self::Percent => "‘%‘",
             Self::DoubleQuote => "‘\"‘",
             Self::OpFunction => "OpFunction",
             Self::OpFunctionEnd => "OpFunctionEnd",
@@ -393,19 +395,37 @@ impl TokenKind {
 mod test {
     use super::TokenKind;
     use logos::Logos;
+
     #[test]
-    fn test_token() {
-        let input = "%uint_0 = OpConstant %uint 0
+    fn test_ident_pure_num() {
+        let input = "%11 = OpConstant %_ptr_Function_uint 0
         ";
         let mut lexer = TokenKind::lexer(input);
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpConstant));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
+    }
+
+    #[test]
+    fn test_token() {
+        let input = "%uint_0 = OpConstant %uint 0
+        ";
+        let mut lexer = TokenKind::lexer(input);
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpConstant));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Int));
@@ -417,7 +437,7 @@ mod test {
         let input = "%uint = OpTypeInt 32 0
         ";
         let mut lexer = TokenKind::lexer(input);
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
@@ -435,14 +455,14 @@ mod test {
         let input = "%__2 = OpVariable %_ptr_Uniform_InputB Uniform
         ";
         let mut lexer = TokenKind::lexer(input);
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Global));
@@ -453,14 +473,14 @@ mod test {
         let input = "%__2 = OpVariable %_ptr_Uniform_InputB Input
         ";
         let mut lexer = TokenKind::lexer(input);
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Global));
@@ -471,14 +491,14 @@ mod test {
         let input = "%__2 = OpVariable %_ptr_Uniform_InputB Output
         ";
         let mut lexer = TokenKind::lexer(input);
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Global));
@@ -489,14 +509,14 @@ mod test {
         let input = "%__2 = OpVariable %_ptr_Uniform_InputB Workgroup
         ";
         let mut lexer = TokenKind::lexer(input);
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Shared));
@@ -507,14 +527,14 @@ mod test {
         let input = "%__2 = OpVariable %_ptr_Uniform_InputB Function
         ";
         let mut lexer = TokenKind::lexer(input);
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Equal));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpVariable));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
+        // assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Percent));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Local));

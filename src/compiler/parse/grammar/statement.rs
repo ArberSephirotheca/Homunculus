@@ -6,7 +6,7 @@ use crate::compiler::parse::{
 };
 
 pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
-    if p.at(TokenKind::Percent) {
+    if p.at(TokenKind::Ident) {
         Some(variable_def(p))
     } else if p.at(TokenKind::OpDecorate) {
         Some(op_decorate_stmt(p))
@@ -43,7 +43,7 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
     } else if p.at(TokenKind::OpLoad) {
         Some(op_load_expr(p))
     } else if p.at(TokenKind::OpStore) {
-        Some(op_store_expr(p))
+        Some(op_store_statement(p))
     } else if p.at(TokenKind::OpIEqual) {
         Some(op_equal_expr(p))
     } else if p.at(TokenKind::OpINotEqual) {
@@ -88,8 +88,8 @@ fn op_decorate_stmt(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpDecorate token
     p.bump();
-    p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
+    // p.expect(TokenKind::Ident);
     p.expect(TokenKind::BuiltIn);
     if p.at(TokenKind::GlobalInvocationId)
         || p.at(TokenKind::LocalInvocationId)
@@ -115,10 +115,16 @@ fn op_function_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpFunction token
     p.bump();
-    p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    if p.at(TokenKind::OpTypeBool)
+        || p.at(TokenKind::OpTypeInt)
+        || p.at(TokenKind::OpTypeBool)
+        || p.at(TokenKind::OpTypeVoid)
+    {
+        p.bump();
+    } else {
+        p.error();
+    }
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::FunctionExpr)
@@ -157,7 +163,7 @@ fn op_type_vector_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpTypeVector token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Int);
     p.expect(TokenKind::Newline);
@@ -169,9 +175,9 @@ fn op_type_array_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpTypeArray token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Int);
     p.expect(TokenKind::Newline);
@@ -183,9 +189,9 @@ fn op_type_runtime_array_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpTypeRuntimeArray token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::TypeRuntimeArrayExpr)
@@ -197,7 +203,7 @@ fn op_type_struct_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpTypeStruct token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::TypeStructExpr)
@@ -214,7 +220,7 @@ fn op_type_pointer_expr(p: &mut Parser) -> CompletedMarker {
     } else {
         p.error();
     }
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::TypePointerExpr)
@@ -224,7 +230,7 @@ fn op_variable_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpVariable token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     // it can be Uniform, Input, Output, Workgroup, Function
     if p.at(TokenKind::Global) || p.at(TokenKind::Shared) || p.at(TokenKind::Local) {
@@ -241,11 +247,11 @@ fn op_access_chain_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpAccessChain token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::AccessChainExpr)
@@ -264,7 +270,7 @@ fn op_constant_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpConstant token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Int);
     p.expect(TokenKind::Newline);
@@ -276,14 +282,14 @@ fn op_constant_composite_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpConstantComposite token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Int);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::ConstantCompositeExpr)
@@ -303,13 +309,14 @@ fn op_load_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpLoad token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     if p.at(TokenKind::Aligned) {
         p.bump();
         p.expect(TokenKind::Int);
+        p.expect(TokenKind::Newline);
     } else {
         p.expect(TokenKind::Newline);
     }
@@ -317,18 +324,22 @@ fn op_load_expr(p: &mut Parser) -> CompletedMarker {
 }
 
 /// example: OpStore %arrayidx2 %add Aligned 4
-fn op_store_expr(p: &mut Parser) -> CompletedMarker {
+fn op_store_statement(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpStore token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Aligned);
-    p.expect(TokenKind::Int);
-    p.expect(TokenKind::Newline);
-    m.complete(p, TokenKind::StoreExpr)
+    if p.at(TokenKind::Aligned) {
+        p.bump();
+        p.expect(TokenKind::Int);
+        p.expect(TokenKind::Newline);
+    } else {
+        p.expect(TokenKind::Newline);
+    }
+    m.complete(p, TokenKind::StoreStatement)
 }
 
 /// example: %cmp = OpIEqual %bool %call %num_elements
@@ -336,11 +347,11 @@ fn op_equal_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpIEqual token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::EqualExpr)
@@ -351,11 +362,11 @@ fn op_not_equal_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpINotEqual token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::NotEqualExpr)
@@ -366,11 +377,11 @@ fn op_greater_than_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpSGreaterThan token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::GreaterThanExpr)
@@ -381,11 +392,11 @@ fn op_greater_than_equal_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpSGreaterThanEqual token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::GreaterEqualThanExpr)
@@ -396,11 +407,11 @@ fn op_less_than_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpSLessThan token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::LessThanExpr)
@@ -411,11 +422,11 @@ fn op_less_than_equal_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpSLessThanEqual token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::LessThanEqualExpr)
@@ -426,11 +437,11 @@ fn op_branch_conditional_statement(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpBranchConditional token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::BranchConditionalStatement)
@@ -441,7 +452,7 @@ fn op_branch_statement(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpBranch token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::BranchStatement)
@@ -457,9 +468,9 @@ fn op_loop_merge_statement(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpLoopMerge token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
@@ -471,56 +482,58 @@ fn op_selection_merge_statement(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpSelectionMerge token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::SelectionMergeStatement)
 }
 
-/// example: OpAtomicCompareExchange %uint %result %result_ptr 1 0 $value
+/// example: OpAtomicCompareExchange %uint %result %result_ptr 1 0 %value
 fn op_atomic_exchange_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpAtomicExchange token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
 
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
 
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
 
     p.expect(TokenKind::Int);
 
     p.expect(TokenKind::Int);
 
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
 
     m.complete(p, TokenKind::AtomicExchangeExpr)
 }
 
-/// example: OpAtomicCompareExchange %uint %result %ptr 1 0 0 %value %comp
+/// example: OpAtomicCompareExchange %uint %sharedVariable %uint_1 %uint_0 %uint_0 %19 %18
 fn op_atomic_compare_exchange_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpAtomicExchange token
     p.bump();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
 
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
 
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
 
-    p.expect(TokenKind::Int);
+    p.expect(TokenKind::Ident);
 
-    p.expect(TokenKind::Int);
+    p.expect(TokenKind::Ident);
 
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+
     p.expect(TokenKind::Ident);
 
     m.complete(p, TokenKind::AtomicExchangeExpr)
@@ -528,9 +541,9 @@ fn op_atomic_compare_exchange_expr(p: &mut Parser) -> CompletedMarker {
 
 fn variable_def(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
-    p.expect(TokenKind::Percent);
+    // p.expect(TokenKind::Percent);
 
-    if p.at(TokenKind::Ident) || p.at(TokenKind::Int) {
+    if p.at(TokenKind::Ident) {
         p.bump();
     } else {
         p.error();

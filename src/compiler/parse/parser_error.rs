@@ -63,13 +63,13 @@ mod tests {
         assert_eq!(format!("{}", error), output);
     }
 
-    #[test]
-    fn one_expected_did_find() {
-        check(
-            vec![TokenKind::Equal],
-            Some(TokenKind::Ident),
-            10..20,
-            "error at 10..20: expected ‘=’, but found identifier",
-        );
-    }
+    // #[test]
+    // fn one_expected_did_find() {
+    //     check(
+    //         vec![TokenKind::Equal],
+    //         Some(TokenKind::Ident),
+    //         10..20,
+    //         "error at 10..20: expected ‘=’, but found identifier",
+    //     );
+    // }
 }

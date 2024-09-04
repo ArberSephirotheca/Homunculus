@@ -11,7 +11,10 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-type Symbol = String;
+type VariableSymbol = String;
+type TypeSymbol = String;
+type ConstantSymbol = String;
+type SSAID = String;
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum StorageClass {
@@ -21,6 +24,8 @@ pub(crate) enum StorageClass {
     Shared,
     // Function in SPIR-V is Local in our case
     Local,
+    // This is for intermediate SSA variables
+    Intermediate
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -67,25 +72,52 @@ pub(crate) enum SpirvType {
         signed: bool,
     },
     Vector {
-        element: Symbol,
+        element: TypeSymbol,
         count: u32,
     },
     Array {
-        element: Symbol,
+        element: TypeSymbol,
         count: u32,
     },
     RuntimeArray {
-        element: Symbol,
+        element: TypeSymbol,
     },
     Struct {
-        members: Symbol,
+        members: TypeSymbol,
     },
     Pointer {
-        pointee: Symbol,
+        ty: TypeSymbol,
         storage_class: StorageClass,
+    },
+    AccessChain {
+        ty: TypeSymbol,
+        base: VariableSymbol,
+        index: String,
     },
 }
 
+
+/// each time we encounter a constant declaration, we add it to the constant table
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) enum ConstantInfo{
+    Int{
+        width: u32,
+        signed: bool,
+        value: i32,
+    },
+    // Float{
+    //     width: u32,
+    //     value: f32,
+    // },
+}
+
+impl ConstantInfo {
+    pub fn get_value(&self) -> i32 {
+        match self {
+            ConstantInfo::Int { value, .. } => *value,
+        }
+    }
+}
 // Type table, mapping result ID to SpirvType
 pub struct SpirvTypeTable {
     types: HashMap<String, SpirvType>,
@@ -106,26 +138,46 @@ impl SpirvTypeTable {
     }
 }
 
+// Define a step in the access chain
+#[derive(Debug, PartialEq, Clone)]
+pub enum AccessStep {
+    ConstIndex(i32),           // Constant index
+    VariableIndex(VariableSymbol), // Variable index
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableInfo {
+    pub id: String,
     pub ty: SpirvType,
+    pub access_chain: Vec<AccessStep>,
     pub storage_class: StorageClass,
     pub built_in: Option<BuiltInVariable>,
 }
 
 impl VariableInfo {
     pub fn new(
+        // id is the variable name in the source code
+        // it is different from the SSA name as it may be reused
+        // by multiple variables in different scopes
+        // such as OpAccessChain and OpLoad
+        id: String,
+        access_chain: Vec<AccessStep>, 
         ty: SpirvType,
         storage_class: StorageClass,
         built_in: Option<BuiltInVariable>,
     ) -> Self {
         Self {
+            id,
             ty,
+            access_chain,
             storage_class,
             built_in,
         }
     }
 
+    pub fn get_var_name(&self) -> String {
+        self.id.clone()
+    }
     pub fn is_builtin(&self) -> bool {
         self.built_in.is_some()
     }
@@ -140,6 +192,22 @@ impl VariableInfo {
     pub fn get_storage_class(&self) -> StorageClass {
         self.storage_class.clone()
     }
+
+    // pub fn get_index(&self) -> i32 {
+    //     match &self.ty {
+    //         SpirvType::AccessChain { ty, base, index } => index.parse().unwrap(),
+    //         _ => -1,
+    //     }
+    // }
+    pub fn is_intermediate(&self) -> bool {
+        if self.get_storage_class() == StorageClass::Intermediate {
+            true
+        }else{
+            false
+        }
+    }
+
+
 }
 
 pub struct VariableInfoBuilder {
@@ -149,16 +217,17 @@ pub struct VariableInfoBuilder {
 }
 
 // Represents a scope level in the symbol table
-type Scope = HashMap<String, VariableInfo>;
+// key is the SSA name of the variable
+type Scope = HashMap<SSAID, VariableInfo>;
 
 // Represents the entire symbol table with multiple scopes
-pub struct SymbolTable {
+pub struct VariableSymbolTable {
     global: Scope,
     shared: Scope,
     local: Scope,
 }
 
-impl SymbolTable {
+impl VariableSymbolTable {
     // Create a new, empty symbol table
     pub fn new() -> Self {
         Self {
@@ -180,6 +249,9 @@ impl SymbolTable {
             StorageClass::Local => {
                 self.local.insert(var_name, var_info);
             }
+            StorageClass::Intermediate => {
+                self.local.insert(var_name, var_info);
+            }
         }
     }
 
@@ -195,6 +267,27 @@ impl SymbolTable {
             return Some(var.clone());
         }
         None
+    }
+}
+
+
+pub struct ConstantSymbolTable {
+    constants: HashMap<String, ConstantInfo>,
+}
+
+impl ConstantSymbolTable {
+    pub fn new() -> Self {
+        Self {
+            constants: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, id: String, constant: ConstantInfo) {
+        self.constants.insert(id, constant);
+    }
+
+    pub fn lookup(&self, id: &str) -> Option<&ConstantInfo> {
+        self.constants.get(id)
     }
 }
 

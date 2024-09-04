@@ -112,9 +112,22 @@ pub(crate) enum ConstantInfo{
 }
 
 impl ConstantInfo {
+    pub fn new(value: i32, signed: bool) -> Self {
+        Self::Int {
+            width: 32,
+            signed,
+            value,
+        }
+    }
     pub fn get_value(&self) -> i32 {
         match self {
             ConstantInfo::Int { value, .. } => *value,
+        }
+    }
+
+    pub fn is_signed(&self) -> bool {
+        match self {
+            ConstantInfo::Int { signed, .. } => *signed,
         }
     }
 }

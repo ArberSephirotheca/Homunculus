@@ -8,7 +8,7 @@ use super::common::{
     Instruction, InstructionArgument, InstructionArguments, InstructionBuiltInVariable,
     InstructionScope, InstructionValue, Program, Scheduler, VariableScope,
 };
-use crate::codegen::common::InstructionName;
+use crate::codegen::common::{IndexKind, InstructionName};
 pub struct CodegenCx {
     type_table: SpirvTypeTable,
     variable_table: VariableSymbolTable,
@@ -60,7 +60,7 @@ impl CodegenCx {
     pub fn get_from_spirv_type(
         &self,
         spirv_type: &SpirvType,
-    ) -> (InstructionValue, InstructionValue) {
+    ) -> (InstructionValue, IndexKind) {
         match spirv_type {
             // SpirvType::BuiltIn { built_in } => {
             //     let instr_value = match built_in {
@@ -76,22 +76,22 @@ impl CodegenCx {
             //     };
             //     (instr_value, -1)
             // }
-            SpirvType::Bool => (InstructionValue::Bool(true), InstructionValue::Int(-1)),
+            SpirvType::Bool => (InstructionValue::Bool(true), IndexKind::Literal(-1)),
             SpirvType::Int { width, signed } => {
-                (InstructionValue::Int(0), InstructionValue::Int(-1))
+                (InstructionValue::Int(0), IndexKind::Literal(-1))
             }
             SpirvType::Vector { element, count } => {
                 let real_type = self.lookup_type(element.as_str()).unwrap();
                 (
                     self.get_from_spirv_type(real_type).0,
-                    InstructionValue::Int(*count as i32),
+                    IndexKind::Literal(*count as i32),
                 )
             }
             SpirvType::Array { element, count } => {
                 let real_type = self.lookup_type(element.as_str()).unwrap();
                 (
                     self.get_from_spirv_type(real_type).0,
-                    InstructionValue::Int(*count as i32),
+                    IndexKind::Literal(*count as i32),
                 )
             }
             // fixme: what to do with runtime array? the index is unknown
@@ -99,7 +99,7 @@ impl CodegenCx {
                 let real_type = self.lookup_type(element.as_str()).unwrap();
                 (
                     self.get_from_spirv_type(real_type).0,
-                    InstructionValue::Int(-1),
+                    IndexKind::Literal(-1),
                 )
             }
             // fixme: we only accept one member for now
@@ -119,12 +119,12 @@ impl CodegenCx {
                 if let Some(constant_info) = self.lookup_constant(index.as_str()) {
                     (
                         InstructionValue::Pointer(base_info.get_var_name(), base_info),
-                        InstructionValue::Int(constant_info.get_value()),
+                        IndexKind::Literal(constant_info.get_value()),
                     )
                 } else if let Some(var_info) = self.lookup_variable(index.as_str()) {
                     (
                         InstructionValue::Pointer(base_info.get_var_name(), base_info),
-                        InstructionValue::Pointer(var_info.get_var_name(), var_info),
+                        IndexKind::Variable(index.clone()),
                     )
                 } else {
                     panic!("Index {} not found", index)
@@ -173,7 +173,7 @@ impl CodegenCx {
                     Some(b) => {
                         let instr_value =
                             InstructionValue::BuiltIn(InstructionBuiltInVariable::cast(b.clone()));
-                        (instr_value, InstructionValue::Int(-1))
+                        (instr_value, IndexKind::Literal(-1))
                     }
                     None => self.get_from_spirv_type(spirv_type),
                 };
@@ -223,7 +223,7 @@ impl CodegenCx {
                     .name(var_name.clone())
                     // it is intializing a ssa, so the value is None
                     .value(InstructionValue::None)
-                    .index(InstructionValue::Int(-1))
+                    .index(IndexKind::Literal(-1))
                     .scope(VariableScope::Intermediate)
                     .build()
                     .unwrap();
@@ -239,7 +239,7 @@ impl CodegenCx {
                         // as we are loading from a pointer, the value should be None
                         InstructionValue::None
                     })
-                    .index(InstructionValue::Int(-1))
+                    .index(IndexKind::Literal(-1))
                     .scope(VariableScope::cast(&pointer_info.get_storage_class()))
                     .build()
                     .unwrap();
@@ -253,6 +253,7 @@ impl CodegenCx {
                 )
             }
             // example: OpAccessChain
+            // fixme: need testing
             Expr::VariableRef(var_ref) => {
                 let inst_args_builder = InstructionArguments::builder();
                 let inst_arg_builder = InstructionArgument::builder();
@@ -261,7 +262,8 @@ impl CodegenCx {
                 let base_var_name = var_ref.base_var_name();
                 let base_var_info = self.lookup_variable(base_var_name.unwrap().text())
                     .expect("OpAccessChain: Base variable not found in symbol table");
-
+                
+                let ty = self.lookup_type(var_ref.ty().unwrap().text()).unwrap();
                 // Initialize access chain tracking
                 let mut access_chain = base_var_info.access_chain.clone();
                 let mut current_type = var_ref.ty().unwrap();
@@ -272,64 +274,52 @@ impl CodegenCx {
                     // since it is a constant, we can directly use its value
                     access_chain.push(AccessStep::ConstIndex(constant_info.get_value()));
 
-                    // Update the current type based on the access step
-                    current_type = self.get_element_type(&current_type)
-                        .expect("Failed to get element type from SPIR-V type");
+                    // // Update the current type based on the access step
+                    // current_type = self.get_element_type(&current_type)
+                    //     .expect("Failed to get element type from SPIR-V type");
                 }else if let Some(var_info) = self.lookup_variable(index_name.text()) {
                     // Record the access step
                     access_chain.push(AccessStep::VariableIndex(index_name.text().to_string()));
 
-                    // Update the current type based on the access step
-                    current_type = self.get_element_type(&current_type)
-                        .expect("Failed to get element type from SPIR-V type");
+                    // // Update the current type based on the access step
+                    // current_type = self.get_element_type(&current_type)
+                    //     .expect("Failed to get element type from SPIR-V type");
                 }
-                // Process each index in the access chain
-                for index_expr in var_ref.index_expressions() {
-                    let index_value = self.evaluate_index_expr(index_expr)
-                        .expect("Failed to evaluate index expression");
 
-                    // Record the access step
-                    access_chain.push(AccessStep::ArrayIndex(index_value.clone()));
-
-                    // Update the current type based on the access step
-                    current_type = self.get_element_type(&current_type)
-                        .expect("Failed to get element type from SPIR-V type");
-                }
 
                 // Build the final variable information after applying the access chain
                 let var_info = VariableInfo {
-                    id: var_ref.result_var_name().clone(),  // This should be the new SSA name
-                    ty: current_type.clone(),
+                    id: var_name.to_string(),  // This should be the new SSA name
+                    ty: ty.clone(),
                     access_chain,
                     storage_class: base_var_info.storage_class,  // Inherit from base variable
                     built_in: base_var_info.built_in.clone(),    // Inherit from base variable if applicable
                 };
 
                 // Insert the new variable information into the symbol table
-                self.insert_variable(var_ref.result_var_name().clone(), var_info);
+                self.insert_variable(var_name.clone(), var_info.clone());
 
                 // Build the InstructionArgument
-                let instr_value = InstructionValue::AccessChain(
-                    InstructionAccessChain::new(base_var_name, access_chain_expr.index_expressions().clone())
+                let instr_value = InstructionValue::Pointer(
+                    var_name.clone(),
+                    var_info,
                 );
 
-                let arg = inst_arg_builder
-                    .name(var_ref.result_var_name().clone())
-                    .value(instr_value)
-                    .index(InstructionValue::Int(-1))  // Handle indexing as needed
-                    .scope(VariableScope::cast(&base_var_info.storage_class))
-                    .build()
-                    .unwrap();
-
-                Some(
-                    inst_args_builder
-                        .num_args(1)
-                        .push_argument(arg)
-                        .scope(InstructionScope::None),
-                )
+                // OpAccessChain instruction does not output instruction in TLA+ code
+                None
             }
-            Expr::ConstExpr(cost_expr) => {
-                todo!()
+            Expr::ConstExpr(cost_expr) => {  
+                let ty = self.lookup_type(cost_expr.ty().unwrap().text()).unwrap();
+                let value = cost_expr.value().unwrap().text().parse::<i32>().unwrap();
+                let signed = match ty{
+                    SpirvType::Int { signed, .. } => signed,
+                    _ => panic!("ConstExpr: Type {:#?} is not an integer type", ty),
+                };
+                let constant_info = ConstantInfo::new(value, *signed);
+                self.insert_constant(var_name.clone(), constant_info);
+                println!("Constant {} inserted", var_name);
+                // for const expr, we just need to add it to constant symbol table, no need to generate code
+                None
             }
             Expr::LabelExpr(labe_expr) =>{
                 todo!()
@@ -396,8 +386,6 @@ impl CodegenCx {
                 println!("Pointer info {:#?}", pointer_info);
 
                 let object_ssa_id = store_stmt.object().unwrap();
-                let object_info = self.lookup_variable(object_ssa_id.text()).unwrap();
-                println!("Object info {:#?}", object_info);
 
                 self.insert_variable(pointer_ssa_id.text().to_string(), pointer_info.clone());
 
@@ -406,7 +394,7 @@ impl CodegenCx {
                .name(pointer_ssa_id.text().to_string())
                // it is intializing a ssa, so the value is None
                .value(InstructionValue::None)
-               .index(InstructionValue::Int(-1))
+               .index(IndexKind::Literal(-1))
                .scope(VariableScope::cast(&pointer_info.get_storage_class()))
                .build()
                .unwrap();
@@ -414,21 +402,21 @@ impl CodegenCx {
                 // object can be constant or pointer
                 let arg2 = if let Some(constant_info) = self.lookup_constant(object_ssa_id.text()) {
                     inst_arg2_builder
-                        .name(pointer_ssa_id.text().to_string())
+                        .name(object_ssa_id.text().to_string())
                         .value(InstructionValue::Int(constant_info.get_value()))
-                        .index(InstructionValue::Int(-1))
+                        .index(IndexKind::Literal(-1))
                         .scope(VariableScope::Literal)
                         .build()
                         .unwrap()
                 } else if let Some(var_info) = self.lookup_variable(object_ssa_id.text()) {
                     inst_arg2_builder
-                        .name(pointer_ssa_id.text().to_string())
+                        .name(object_ssa_id.text().to_string())
                         .value(InstructionValue::Pointer(
                             var_info.get_var_name(),
                             var_info.clone(),
                         ))
-                        .index(InstructionValue::Int(-1))
-                        .scope(VariableScope::cast(&pointer_info.get_storage_class()))
+                        .index(IndexKind::Literal(-1))
+                        .scope(VariableScope::cast(&var_info.get_storage_class()))
                         .build()
                         .unwrap()
                 } else {
@@ -489,11 +477,13 @@ impl CodegenCx {
 mod test {
     use crate::ast::Expr;
     use crate::ast::Root;
+    use crate::codegen::common::IndexKind;
     use crate::codegen::common::Instruction;
     use crate::codegen::common::InstructionBuiltInVariable;
     use crate::codegen::common::VariableScope;
     use crate::codegen::context::InstructionBuiltInVariable::SubgroupLocalInvocationId;
     use crate::codegen::context::InstructionValue;
+    use crate::codegen::context::VariableInfo;
     use crate::compiler::parse::symbol_table::SpirvType;
     use crate::compiler::parse::symbol_table::StorageClass;
     use crate::compiler::{
@@ -524,7 +514,7 @@ mod test {
             variable_decl.arguments.arguments[0].value,
             InstructionValue::Int(0)
         );
-        assert_eq!(variable_decl.arguments.arguments[0].index, -1);
+        assert_eq!(variable_decl.arguments.arguments[0].index, IndexKind::Literal(-1));
         assert_eq!(
             variable_decl.arguments.arguments[0].scope,
             VariableScope::Local
@@ -552,11 +542,26 @@ mod test {
             variable_decl.arguments.arguments[0].value,
             InstructionValue::Int(0)
         );
-        assert_eq!(variable_decl.arguments.arguments[0].index, 30);
+        assert_eq!(variable_decl.arguments.arguments[0].index, IndexKind::Literal(30));
         assert_eq!(
             variable_decl.arguments.arguments[0].scope,
             VariableScope::Local
         );
+    }
+
+    #[test]
+    fn check_constant() {
+        let input = "%int = OpTypeInt 32 1
+        %11 = OpConstant %int -5 
+        ";
+
+        let syntax = parse(input).syntax();
+        let mut codegen_ctx = CodegenCx::new();
+        let program = codegen_ctx.generate_code(syntax);
+        assert_ne!(codegen_ctx.lookup_constant("%11"), None);
+        let const_val = codegen_ctx.lookup_constant("%11").unwrap();
+        assert_eq!(const_val.get_value(), -5);
+        assert_eq!(const_val.is_signed(), true);
     }
 
     #[test]
@@ -584,7 +589,7 @@ mod test {
             builtin_variable_decl.arguments.arguments[0].value,
             InstructionValue::BuiltIn(SubgroupLocalInvocationId)
         );
-        assert_eq!(builtin_variable_decl.arguments.arguments[0].index, -1);
+        assert_eq!(builtin_variable_decl.arguments.arguments[0].index, IndexKind::Literal(-1));
         assert_eq!(
             builtin_variable_decl.arguments.arguments[0].scope,
             VariableScope::Global
@@ -592,40 +597,135 @@ mod test {
 
         let var_load = program.instructions.get(1).unwrap();
         println!("{:#?}", var_load);
-        assert_eq!(var_load.arguments.num_args, 1);
+        assert_eq!(var_load.arguments.num_args, 2);
         assert_eq!(var_load.arguments.arguments[0].name, "%11");
         assert_eq!(
             var_load.arguments.arguments[0].value,
-            InstructionValue::BuiltIn(SubgroupLocalInvocationId)
+            InstructionValue::None
         );
-        assert_eq!(var_load.arguments.arguments[0].index, -1);
+        assert_eq!(var_load.arguments.arguments[0].index, IndexKind::Literal(-1));
         assert_eq!(
             var_load.arguments.arguments[0].scope,
             VariableScope::Intermediate
         );
+
+        assert_eq!(var_load.arguments.arguments[1].name, "%gl_SubgroupInvocationID");
+        assert_eq!(
+            var_load.arguments.arguments[1].value,
+            InstructionValue::BuiltIn(SubgroupLocalInvocationId)
+        );
+        assert_eq!(var_load.arguments.arguments[1].index, IndexKind::Literal(-1));
+        assert_eq!(
+            var_load.arguments.arguments[1].scope,
+            VariableScope::Global
+        );
+
     }
 
     #[test]
-    fn check_store() {
-        let input = "%uint = OpTypeInt 32 0
-        %_ptr_Function_uint = OpTypePointer Function %uint
+    fn check_store_constant() {
+        let input = "%int = OpTypeInt 32 1
+        %11 = OpConstant %int -5
+        %_ptr_Function_uint = OpTypePointer Function %int
         %idx = OpVariable %_ptr_Function_uint Function
         OpStore %idx %11
         ";
         let syntax = parse(input).syntax();
         let mut codegen_ctx = CodegenCx::new();
         let program = codegen_ctx.generate_code(syntax);
-        let store = program.instructions.get(0).unwrap();
-        todo!()
+        let store = program.instructions.get(1).unwrap();
+        assert_eq!(store.arguments.num_args, 2);
+        assert_eq!(store.arguments.arguments[0].name, "%idx");
+        assert_eq!(store.arguments.arguments[0].value, InstructionValue::None);
+        assert_eq!(store.arguments.arguments[0].index, IndexKind::Literal(-1));
+        assert_eq!(store.arguments.arguments[0].scope, VariableScope::Local);
+
+        assert_eq!(store.arguments.arguments[1].name, "%11");
+        assert_eq!(store.arguments.arguments[1].value, InstructionValue::Int(-5));
+        assert_eq!(store.arguments.arguments[1].index, IndexKind::Literal(-1));
+        assert_eq!(store.arguments.arguments[1].scope, VariableScope::Literal);
+    }
+
+
+    #[test]
+    fn check_store_variable() {
+        let input = "%uint = OpTypeInt 32 0
+        %uint_0 = OpVariable %uint Function
+        %_ptr_Function_uint = OpTypePointer Function %uint
+        %idx = OpVariable %_ptr_Function_uint Function
+        OpStore %idx %uint_0
+        ";
+        let syntax = parse(input).syntax();
+        let mut codegen_ctx = CodegenCx::new();
+        let program = codegen_ctx.generate_code(syntax);
+        let store = program.instructions.get(2).unwrap();
+        assert_eq!(store.arguments.num_args, 2);
+        assert_eq!(store.arguments.arguments[0].name, "%idx");
+        assert_eq!(store.arguments.arguments[0].value, InstructionValue::None);
+        assert_eq!(store.arguments.arguments[0].index, IndexKind::Literal(-1));
+        assert_eq!(store.arguments.arguments[0].scope, VariableScope::Local);
+
+        assert_eq!(store.arguments.arguments[1].name, "%uint_0");
+        assert_eq!(store.arguments.arguments[1].value, InstructionValue::Pointer("%uint_0".to_string(), VariableInfo{
+            id: "%uint_0".to_string(),
+            ty: SpirvType::Int{width: 32, signed: false},
+            access_chain: vec![],
+            storage_class: StorageClass::Local,
+            built_in: None
+        }));
+        assert_eq!(store.arguments.arguments[1].index, IndexKind::Literal(-1));
+        assert_eq!(store.arguments.arguments[1].scope, VariableScope::Local);
     }
 
     #[test]
     fn check_access_chain() {
-        todo!()
+        let input = "%uint = OpTypeInt 32 0
+         %v3uint = OpTypeVector %uint 30
+         %_ptr_Input_v3uint = OpTypePointer Input %v3uint
+         %v3uint_0 = OpVariable %_ptr_Input_v3uint Function
+         %10 = OpConstant %uint 2
+         %11 = OpAccessChain %_ptr_Input_uint %v3uint_0 %10
+        ";
+        let syntax = parse(input).syntax();
+        let mut codegen_ctx = CodegenCx::new();
+        let program = codegen_ctx.generate_code(syntax);
+        let var_info = codegen_ctx.lookup_variable("%11");
+        assert_ne!(var_info, None);
+        let var_info = var_info.unwrap();
+        assert_eq!(var_info.id, "%11");
+        assert_eq!(var_info.ty, SpirvType::AccessChain{
+            ty: "%v3uint".to_string(),
+            base: "%v3uint_0".to_string(),
+            index: "%10".to_string()
+        });
     }
 
-    #[test]
-    fn check_constant() {
-        todo!()
+
+    /*
+    layout(std140, binding = 0) uniform UBO {
+    float data[10];
+    int indices[10];
+    };
+
+    void main() {
+    int index = int(gl_FragCoord.x);
+    
+    // First load: load an index from the 'indices' array
+    int tempIndex = indices[index];  // Load index
+
+    // Second load: use the loaded index to load from 'data'
+    float value = data[tempIndex];   // Load value using tempIndex
     }
+     */
+    #[test]
+    fn check_load_with_access_chain(){
+        let input = "%ptr1 = OpAccessChain %_ptr_Uniform_int %UBO %index 
+            %tempIndex = OpLoad %int %ptr1
+            %ptr2 = OpAccessChain %_ptr_Uniform_float %UBO %tempIndex
+            %value = OpLoad %float %ptr2
+            ";
+            todo!()
+    }
+
+
 }

@@ -361,6 +361,20 @@ impl ConstExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
+    
+    pub(crate) fn ty(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
+
+    pub(crate) fn value(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Int)
+    }
 }
 
 impl EqualExpr {

@@ -251,7 +251,7 @@ pub enum TokenKind {
     Ident,
     #[regex("[0-9]+\\.[0-9]+")]
     Float,
-    #[regex("[0-9]+")]
+    #[regex("-?[0-9]+")]
     Int,
     #[regex("true|false")]
     Bool,

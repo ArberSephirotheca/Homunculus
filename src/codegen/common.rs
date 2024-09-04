@@ -87,6 +87,12 @@ impl InstructionBuiltInVariable {
         }
     }
 }
+
+#[derive(Debug, PartialEq)]
+pub enum IndexKind {
+    Literal(i32),
+    Variable(String),
+}
 #[derive(Debug, PartialEq)]
 pub enum InstructionValue {
     None,
@@ -108,7 +114,7 @@ pub enum Scheduler {
 pub struct GlobalVar {
     pub name: String,
     pub value: InstructionValue,
-    pub index: InstructionValue,
+    pub index: IndexKind,
 }
 
 #[derive(Debug)]
@@ -116,7 +122,7 @@ pub struct InstructionArgument {
     pub name: String,
     pub scope: VariableScope,
     pub value: InstructionValue,
-    pub index: InstructionValue,
+    pub index: IndexKind,
 }
 
 #[derive(Debug)]

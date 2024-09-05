@@ -59,7 +59,7 @@ impl<'l, 't> Parser<'l, 't> {
         self.events.push(Event::AddToken)
     }
 
-    fn peek(&mut self) -> Option<TokenKind> {
+    pub(crate) fn peek(&mut self) -> Option<TokenKind> {
         self.source.peek_kind()
     }
 

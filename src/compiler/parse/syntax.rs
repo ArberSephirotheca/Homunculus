@@ -97,6 +97,8 @@ pub enum TokenKind {
     LabelExpr,
     ConstantExpr,
     ConstantCompositeExpr,
+    ConstantTrueExpr,
+    ConstantFalseExpr,
     LoadExpr,
     EqualExpr,
     NotEqualExpr,
@@ -207,6 +209,10 @@ pub enum TokenKind {
     OpConstant,
     #[regex("OpConstantComposite")]
     OpConstantComposite,
+    #[regex("OpConstantTrue")]
+    OpConstantTrue,
+    #[regex("OpConstantFalse")]
+    OpConstantFalse,
     #[regex("OpIEqual")]
     OpIEqual,
     #[regex("OpINotEqual")]

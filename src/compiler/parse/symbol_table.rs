@@ -15,6 +15,8 @@ type VariableSymbol = String;
 type TypeSymbol = String;
 type ConstantSymbol = String;
 type SSAID = String;
+type Label = String;
+type Position = u32;
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum StorageClass {
@@ -25,7 +27,7 @@ pub(crate) enum StorageClass {
     // Function in SPIR-V is Local in our case
     Local,
     // This is for intermediate SSA variables
-    Intermediate
+    Intermediate,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -89,21 +91,23 @@ pub(crate) enum SpirvType {
         ty: TypeSymbol,
         storage_class: StorageClass,
     },
-    AccessChain {
-        ty: TypeSymbol,
-        base: VariableSymbol,
-        index: String,
-    },
+    // AccessChain {
+    //     ty: TypeSymbol,
+    //     base: VariableSymbol,
+    //     index: String,
+    // },
 }
-
 
 /// each time we encounter a constant declaration, we add it to the constant table
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) enum ConstantInfo{
-    Int{
+pub(crate) enum ConstantInfo {
+    Int {
         width: u32,
         signed: bool,
         value: i32,
+    },
+    Bool {
+        value: bool,
     },
     // Float{
     //     width: u32,
@@ -112,22 +116,33 @@ pub(crate) enum ConstantInfo{
 }
 
 impl ConstantInfo {
-    pub fn new(value: i32, signed: bool) -> Self {
+    pub fn new_int(value: i32, signed: bool) -> Self {
         Self::Int {
             width: 32,
             signed,
             value,
         }
     }
-    pub fn get_value(&self) -> i32 {
+    pub fn new_bool(value: bool) -> Self {
+        Self::Bool { value }
+    }
+    pub fn get_int_value(&self) -> i32 {
         match self {
             ConstantInfo::Int { value, .. } => *value,
+            _ => panic!("Invalid constant type for get_int_value"),
+        }
+    }
+    pub fn get_bool_value(&self) -> bool {
+        match self {
+            ConstantInfo::Bool { value } => *value,
+            _ => panic!("Invalid constant type for get_bool_value"),
         }
     }
 
     pub fn is_signed(&self) -> bool {
         match self {
             ConstantInfo::Int { signed, .. } => *signed,
+            _ => panic!("Invalid constant type for is_signed"),
         }
     }
 }
@@ -154,7 +169,7 @@ impl SpirvTypeTable {
 // Define a step in the access chain
 #[derive(Debug, PartialEq, Clone)]
 pub enum AccessStep {
-    ConstIndex(i32),           // Constant index
+    ConstIndex(i32),               // Constant index
     VariableIndex(VariableSymbol), // Variable index
 }
 
@@ -174,7 +189,7 @@ impl VariableInfo {
         // by multiple variables in different scopes
         // such as OpAccessChain and OpLoad
         id: String,
-        access_chain: Vec<AccessStep>, 
+        access_chain: Vec<AccessStep>,
         ty: SpirvType,
         storage_class: StorageClass,
         built_in: Option<BuiltInVariable>,
@@ -215,12 +230,10 @@ impl VariableInfo {
     pub fn is_intermediate(&self) -> bool {
         if self.get_storage_class() == StorageClass::Intermediate {
             true
-        }else{
+        } else {
             false
         }
     }
-
-
 }
 
 pub struct VariableInfoBuilder {
@@ -283,7 +296,6 @@ impl VariableSymbolTable {
     }
 }
 
-
 pub struct ConstantSymbolTable {
     constants: HashMap<String, ConstantInfo>,
 }
@@ -304,6 +316,25 @@ impl ConstantSymbolTable {
     }
 }
 
+pub struct LabelTable {
+    labels: HashMap<Label, Position>,
+}
+
+impl LabelTable {
+    pub fn new() -> Self {
+        Self {
+            labels: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, label: Label, position: Position) {
+        self.labels.insert(label, position);
+    }
+
+    pub fn lookup(&self, label: &str) -> Option<&Position> {
+        self.labels.get(label)
+    }
+}
 // lazy_static! {
 //     pub static ref TYPE_TABLE: SpirvTypeTable = {
 //         let mut table = SpirvTypeTable::new();

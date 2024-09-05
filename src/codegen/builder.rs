@@ -157,16 +157,16 @@ impl Instruction {
 
 #[derive(Default)]
 pub struct InstructionBuilder {
-    // position: Option<u32>,
+    position: Option<u32>,
     name: Option<InstructionName>,
     arguments: Option<InstructionArguments>,
 }
 
 impl InstructionBuilder {
-    // pub fn position(mut self, position: u32) -> Self {
-    //     self.position = Some(position);
-    //     self
-    // }
+    pub fn position(mut self, position: u32) -> Self {
+        self.position = Some(position);
+        self
+    }
 
     pub fn name(mut self, name: InstructionName) -> Self {
         self.name = Some(name);
@@ -180,7 +180,7 @@ impl InstructionBuilder {
 
     pub fn build(self) -> Result<Instruction> {
         Ok(Instruction {
-            // position: self.position.ok_or_else(|| eyre!("Position is required"))?,
+            position: self.position.ok_or_else(|| eyre!("Position is required"))?,
             name: self.name.ok_or_else(|| eyre!("Name is required"))?,
             arguments: self
                 .arguments

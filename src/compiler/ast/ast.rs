@@ -28,6 +28,10 @@ pub struct StoreStatement(SyntaxNode);
 #[derive(Debug)]
 pub struct ConstExpr(SyntaxNode);
 #[derive(Debug)]
+pub struct ConstTrueExpr(SyntaxNode);
+#[derive(Debug)]
+pub struct ConstFalseExpr(SyntaxNode);
+#[derive(Debug)]
 pub struct EqualExpr(SyntaxNode);
 #[derive(Debug)]
 pub struct NotEqualExpr(SyntaxNode);
@@ -65,6 +69,8 @@ pub enum Expr {
     LabelExpr(LabelExpr),
     LoadExpr(LoadExpr),
     ConstExpr(ConstExpr),
+    ConstTrueExpr(ConstTrueExpr),
+    ConstFalseExpr(ConstFalseExpr),
     EqualExpr(EqualExpr),
     NotEqualExpr(NotEqualExpr),
     LessThanExpr(LessThanExpr),
@@ -106,6 +112,8 @@ impl Expr {
             TokenKind::LoadExpr => Some(Self::LoadExpr(LoadExpr(node))),
             TokenKind::ConstantExpr => Some(Self::ConstExpr(ConstExpr(node))),
             // TokenKind::ConstantCompositeExpr => Some(Self::ConstExpr(ConstExpr(node))),
+            TokenKind::ConstantTrueExpr => Some(Self::ConstTrueExpr(ConstTrueExpr(node))),
+            TokenKind::ConstantFalseExpr => Some(Self::ConstFalseExpr(ConstFalseExpr(node))),
             TokenKind::EqualExpr => Some(Self::EqualExpr(EqualExpr(node))),
             TokenKind::NotEqualExpr => Some(Self::NotEqualExpr(NotEqualExpr(node))),
             TokenKind::GreaterThanExpr => Some(Self::GreaterThanExpr(GreaterThanExpr(node))),
@@ -227,16 +235,16 @@ impl TypeExpr {
                     },
                 }
             }
-            TokenKind::AccessChainExpr => {
-                let ty = &tokens[1];
-                let base = &tokens[2];
-                let index = &tokens[3];
-                SpirvType::AccessChain {
-                    ty: ty.text().to_string(),
-                    base: base.text().to_string(),
-                    index: index.text().to_string(),
-                }
-            }
+            // TokenKind::AccessChainExpr => {
+            //     let ty = &tokens[1];
+            //     let base = &tokens[2];
+            //     let index = &tokens[3];
+            //     SpirvType::AccessChain {
+            //         ty: ty.text().to_string(),
+            //         base: base.text().to_string(),
+            //         index: index.text().to_string(),
+            //     }
+            // }
             _ => panic!("Invalid type {}", self.0.first_token().unwrap().text()),
         }
     }
@@ -361,7 +369,7 @@ impl ConstExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
     }
-    
+
     pub(crate) fn ty(&self) -> Option<SyntaxToken> {
         self.0
             .children_with_tokens()
@@ -377,6 +385,7 @@ impl ConstExpr {
     }
 }
 
+impl ConstFalseExpr {}
 impl EqualExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
@@ -456,11 +465,37 @@ impl ReturnStatement {
 }
 
 impl BranchConditionalStatement {
-    // todo: implement
+    pub(crate) fn condition(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
+
+    pub(crate) fn true_label(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Ident)
+            .nth(1)
+    }
+
+    pub(crate) fn false_label(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Ident)
+            .nth(2)
+    }
 }
 
 impl BranchStatement {
-    // todo: implement
+    pub(crate) fn label(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
 }
 
 impl SwitchStatement {

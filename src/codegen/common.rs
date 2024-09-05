@@ -25,6 +25,8 @@ use smallvec::SmallVec;
 pub enum InstructionName {
     Assignment,
     Store,
+    Branch,
+    BranchConditional,
 }
 
 #[derive(Debug, PartialEq)]
@@ -134,7 +136,7 @@ pub struct InstructionArguments {
 
 #[derive(Debug)]
 pub struct Instruction {
-    // pub position: u32,
+    pub position: u32,
     pub name: InstructionName,
     pub arguments: InstructionArguments,
 }

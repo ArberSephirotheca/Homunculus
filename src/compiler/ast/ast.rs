@@ -507,7 +507,12 @@ impl LoopMergeStatement {
 }
 
 impl SelectionMergeStatement {
-    // todo: implement
+    pub(crate) fn merge_label(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
 }
 
 #[cfg(test)]

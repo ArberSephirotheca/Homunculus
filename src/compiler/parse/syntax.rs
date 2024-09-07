@@ -146,6 +146,8 @@ pub enum TokenKind {
 
     #[regex("BuiltIn")]
     BuiltIn,
+    #[regex("None")]
+    None,
 
     // Primitive Type instruction
     #[regex("OpTypeBool")]

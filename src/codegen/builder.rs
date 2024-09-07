@@ -115,12 +115,17 @@ impl InstructionArguments {
 
 #[derive(Default)]
 pub struct InstructionArgumentsBuilder {
+    name: Option<InstructionName>,
     num_args: Option<u32>,
     scope: Option<InstructionScope>,
     arguments: SmallVec<[InstructionArgument; 4]>,
 }
 
 impl InstructionArgumentsBuilder {
+    pub fn name(mut self, name: InstructionName) -> Self {
+        self.name = Some(name);
+        self
+    }
     pub fn num_args(mut self, num_args: u32) -> Self {
         self.num_args = Some(num_args);
         self
@@ -131,6 +136,18 @@ impl InstructionArgumentsBuilder {
         self
     }
 
+    pub fn get_name(&self) -> Option<InstructionName> {
+        self.name
+    }
+
+    pub fn get_num_args(&self) -> Option<u32> {
+        self.num_args
+    }
+
+    pub fn get_scope(&self) -> Option<InstructionScope> {
+        self.scope
+    }
+    
     pub fn push_argument(mut self, argument: InstructionArgument) -> Self {
         self.arguments.push(argument);
         self
@@ -138,6 +155,7 @@ impl InstructionArgumentsBuilder {
 
     pub fn build(self) -> Result<InstructionArguments> {
         Ok(InstructionArguments {
+            name: self.name.ok_or_else(|| eyre!("Instruction name is required"))?,
             num_args: self
                 .num_args
                 .ok_or_else(|| eyre!("Number of arguments is required"))?,

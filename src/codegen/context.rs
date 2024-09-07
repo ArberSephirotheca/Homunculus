@@ -207,6 +207,7 @@ impl CodegenCx {
 
                 Some(
                     inst_args_builder
+                        .name(InstructionName::Assignment)
                         .num_args(1)
                         .push_argument(arg)
                         .scope(InstructionScope::None),
@@ -256,6 +257,7 @@ impl CodegenCx {
 
                 Some(
                     inst_args_builder
+                        .name(InstructionName::Load)
                         .num_args(2)
                         .push_argument(arg1)
                         .push_argument(arg2)
@@ -358,6 +360,7 @@ impl CodegenCx {
                     .unwrap();
 
                 let args = inst_args_builder
+                    .name(InstructionName::Label)
                     .num_args(1)
                     .push_argument(arg1)
                     .scope(InstructionScope::None);
@@ -386,10 +389,12 @@ impl CodegenCx {
                 if inst_args_builder.is_none() {
                     None
                 } else {
+                    let arguments = inst_args_builder.unwrap().build().unwrap();
+                    let inst_name = arguments.name.clone();
                     Some(
                         inst_builder
-                            .arguments(inst_args_builder.unwrap().build().unwrap())
-                            .name(InstructionName::Assignment)
+                            .arguments(arguments)
+                            .name(inst_name)
                             .position(self.increment_inst_position())
                             .build()
                             .unwrap(),
@@ -610,7 +615,35 @@ impl CodegenCx {
                 todo!()
             }
             Stmt::SelectionMergeStatement(selection_merge_stmt) => {
-                todo!()
+                let inst_args_builder = InstructionArguments::builder();
+                let inst_arg1_builder = InstructionArgument::builder();
+                let merge_label = selection_merge_stmt.merge_label().unwrap();
+                let merge_label_position = self.lookup_label(merge_label.text()).unwrap();
+
+                let arg = inst_arg1_builder
+                    .name(merge_label.text().to_string())
+                    .value(InstructionValue::Int(*merge_label_position as i32))
+                    .index(IndexKind::Literal(-1))
+                    .scope(VariableScope::Literal)
+                    .build()
+                    .unwrap();
+
+                let inst_args = inst_args_builder
+                .name(InstructionName::SelectionMerge)
+                .num_args(1)
+                .push_argument(arg)
+                .scope(InstructionScope::None)
+                .build()
+                .unwrap();
+
+                Some(
+                    Instruction::builder()
+                        .arguments(inst_args)
+                        .name(InstructionName::SelectionMerge)
+                        .position(self.increment_inst_position())
+                        .build()
+                        .unwrap(),
+                )
             }
             _ => unimplemented!(),
         }
@@ -645,6 +678,7 @@ mod test {
     use crate::codegen::common::IndexKind;
     use crate::codegen::common::Instruction;
     use crate::codegen::common::InstructionBuiltInVariable;
+    use crate::codegen::common::InstructionName;
     use crate::codegen::common::VariableScope;
     use crate::codegen::context::AccessStep;
     use crate::codegen::context::InstructionBuiltInVariable::SubgroupLocalInvocationId;
@@ -674,6 +708,7 @@ mod test {
         let program = codegen_ctx.generate_code(syntax);
         // let basic_type = program.instructions.get(0).unwrap();
         let variable_decl = program.instructions.get(0).unwrap();
+        assert_eq!(variable_decl.name, InstructionName::Assignment);
         assert_eq!(variable_decl.arguments.num_args, 1);
         assert_eq!(variable_decl.arguments.arguments[0].name, "%uint_0");
         assert_eq!(
@@ -705,6 +740,7 @@ mod test {
         let program = codegen_ctx.generate_code(syntax);
         // let basic_type = program.instructions.get(0).unwrap();
         let variable_decl = program.instructions.get(0).unwrap();
+        assert_eq!(variable_decl.name, InstructionName::Assignment);
         assert_eq!(variable_decl.arguments.num_args, 1);
         assert_eq!(variable_decl.arguments.arguments[0].name, "%v3uint_0");
         assert_eq!(
@@ -780,6 +816,7 @@ mod test {
         let program = codegen_ctx.generate_code(syntax);
         let builtin_variable_decl = program.instructions.get(0).unwrap();
 
+        assert_eq!(builtin_variable_decl.name, InstructionName::Load);
         assert_eq!(builtin_variable_decl.arguments.num_args, 1);
         assert_eq!(
             builtin_variable_decl.arguments.arguments[0].name,
@@ -1046,6 +1083,32 @@ mod test {
         );
         assert_eq!(
             branch_conditional.arguments.arguments[2].scope,
+            VariableScope::Literal
+        );
+    }
+
+    #[test]
+    fn check_selection_merge(){
+        let input = "%1 = OpLabel
+        %2 = OpLabel
+        OpSelectionMerge %2 None
+        ";
+        let syntax = parse(input).syntax();
+        let mut codegen_ctx = CodegenCx::new();
+        let program = codegen_ctx.generate_code(syntax);
+        let selection_merge = program.instructions.get(2).unwrap();
+        assert_eq!(selection_merge.arguments.num_args, 1);
+        assert_eq!(selection_merge.arguments.arguments[0].name, "%2");
+        assert_eq!(
+            selection_merge.arguments.arguments[0].value,
+            InstructionValue::Int(2)
+        );
+        assert_eq!(
+            selection_merge.arguments.arguments[0].index,
+            IndexKind::Literal(-1)
+        );
+        assert_eq!(
+            selection_merge.arguments.arguments[0].scope,
             VariableScope::Literal
         );
     }

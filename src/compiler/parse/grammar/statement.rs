@@ -503,6 +503,7 @@ fn op_loop_merge_statement(p: &mut Parser) -> CompletedMarker {
     m.complete(p, TokenKind::LoopMergeStatement)
 }
 
+
 /// example: OpSelectionMerge %29 None
 fn op_selection_merge_statement(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
@@ -510,7 +511,7 @@ fn op_selection_merge_statement(p: &mut Parser) -> CompletedMarker {
     p.bump();
     // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::None);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::SelectionMergeStatement)
 }

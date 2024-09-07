@@ -21,12 +21,16 @@ use smallvec::SmallVec;
 //     // There are more built-in variables, but currently we only support these
 // }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum InstructionName {
     Assignment,
+    Load,
     Store,
     Branch,
     BranchConditional,
+    Label,
+    SelectionMerge,
+    LoopMerge,
 }
 
 #[derive(Debug, PartialEq)]
@@ -49,7 +53,7 @@ impl VariableScope {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum InstructionScope {
     // CrossDevice = 0,
     // Device = 1,
@@ -129,6 +133,7 @@ pub struct InstructionArgument {
 
 #[derive(Debug)]
 pub struct InstructionArguments {
+    pub name: InstructionName,
     pub num_args: u32,
     pub scope: InstructionScope,
     pub arguments: SmallVec<[InstructionArgument; 4]>,

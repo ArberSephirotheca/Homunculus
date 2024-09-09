@@ -301,7 +301,7 @@ pub enum TokenKind {
     Whitespace,
     #[regex("\n")]
     Newline,
-    #[regex(r";[^\n]*", logos::skip)]
+    #[regex(r";[^\n]*\n", logos::skip)]
     VersionInfo,
     #[regex("\"")]
     DoubleQuote,
@@ -584,12 +584,9 @@ mod test {
         OpDecorate %gl_SubgroupInvocationID BuiltIn SubgroupLocalInvocationId
         ";
         let mut lexer = TokenKind::lexer(input);
-        println!("{:?}", lexer.span());
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
+        println!("{:?}", lexer);
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
-        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpDecorate));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));

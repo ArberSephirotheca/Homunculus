@@ -627,7 +627,26 @@ mod test {
         };
         assert_eq!(opdecor_stmt.name().unwrap().text(), "%subgroup_size");
         assert_eq!(opdecor_stmt.built_in_var().unwrap().kind(), TokenKind::SubgroupSize);
-        
+    }
 
+    #[test]
+    fn check_skipped_token(){
+        let input = "; SPIR-V
+        ; Version: 1.0
+        ; Generator: Khronos Glslang Reference Front End; 11
+        OpDecorate %gl_SubgroupInvocationID BuiltIn SubgroupLocalInvocationId
+        ";
+        let parse = parse(input);
+        let syntax = parse.syntax();
+        let root = Root::cast(syntax).unwrap();
+        let stmt = root.stmts().next().unwrap();
+        let decorate_stmt = match stmt {
+            Stmt::DecorateStatement(decorate_stmt) => {
+                decorate_stmt
+            }
+            _ => panic!("Expected decorate statement, but got {:#?}", stmt),
+        };
+        assert_eq!(decorate_stmt.name().unwrap().text(), "%gl_SubgroupInvocationID");
+        assert_eq!(decorate_stmt.built_in_var().unwrap().kind(), TokenKind::SubgroupLocalInvocationId);
     }
 }

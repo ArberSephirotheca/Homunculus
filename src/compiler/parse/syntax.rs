@@ -34,37 +34,42 @@ pub enum LexingError {
 //     }
 // }
 
-const INSTRUCTION_SET: [&'static str; 19] = [
-    "OpLabel",
-    "OpReturn",
-    "OpKill",
-    "OpLoad",
-    "OpStore",
-    "OpConstant",
-    "OpIEqual",
-    "OpINotEqual",
-    "OpSLessThan",
-    "OpSGreaterThan",
-    "OpSLessThanEqual",
-    "OpSGreaterThanEqual",
-    "OpBranch",
-    "OpBranchConditional",
-    //"OpSwitch",
-    "OpLoopMerge",
-    "OpSelectionMerge",
-    "OpAtomicExchange",
-    "OpAtomicCompareExchange",
-    "OpGroupAll",
+/// This set is used to distinguish between instructions that are not supported by the parser and the ones that are ignored
+pub(crate) const IGNORED_INSTRUCTION_SET: [TokenKind; 11] = [
+    TokenKind::OpMemberDecorate,
+    TokenKind::OpCapability,
+    TokenKind::OpExtension,
+    TokenKind::OpExtInstImport,
+    TokenKind::OpMemoryModel,
+    // fixme: OpEntryPoint is needed when we support function calls
+    TokenKind::OpEntryPoint,
+    TokenKind::OpSource,
+    TokenKind::OpSourceExtension,
+    TokenKind::OpName,
+    TokenKind::OpMemberName,
+    TokenKind::OpMemberDecorate,
 ];
 
-fn instruction_not_supported(instruction: &str) -> bool {
-    for i in INSTRUCTION_SET.iter() {
-        if i == &instruction {
-            return false;
-        }
-    }
-    true
-}
+pub(crate) const BUILT_IN_VARIABLE_SET : [TokenKind; 9] = [
+    TokenKind::NumWorkgroups,
+    TokenKind::WorkgroupSize,
+    TokenKind::WorkgroupId,
+    TokenKind::LocalInvocationId,
+    TokenKind::GlobalInvocationId,
+    TokenKind::SubgroupLocalInvocationId,
+    TokenKind::SubgroupSize,
+    TokenKind::NumSubgroups,
+    TokenKind::SubgroupId,
+];
+
+// fn instruction_not_supported(instruction: &str) -> bool {
+//     for i in INSTRUCTION_SET.iter() {
+//         if i == &instruction {
+//             return false;
+//         }
+//     }
+//     true
+// }
 
 #[derive(
     Debug, Hash, Eq, PartialOrd, Ord, Copy, Clone, PartialEq, Logos, FromPrimitive, ToPrimitive,
@@ -73,9 +78,7 @@ fn instruction_not_supported(instruction: &str) -> bool {
 pub enum TokenKind {
     VariableRef,
     VariableDef,
-    FunctionExpr,
-
-    DecorateStatement,
+    IgnoredOp,
 
     // Control flow Statement
     BranchConditionalStatement,
@@ -83,6 +86,8 @@ pub enum TokenKind {
     SwitchStatement,
 
     // Statement
+    ExecutionModeStatement,
+    DecorateStatement,
     ReturnStatement,
     FunctionEndStatement,
     StoreStatement,
@@ -92,6 +97,7 @@ pub enum TokenKind {
     SelectionMergeStatement,
 
     // Expression
+    FunctionExpr,
     VariableExpr,
     AccessChainExpr,
     LabelExpr,
@@ -122,6 +128,9 @@ pub enum TokenKind {
     Statement,
     Error,
 
+    // Built-in variables
+    #[regex("LocalSize")]
+    LocalSize,
     #[regex("NumWorkgroups")]
     NumWorkgroups,
     #[regex("WorkgroupSize")]
@@ -143,7 +152,24 @@ pub enum TokenKind {
 
     #[regex("OpDecorate")]
     OpDecorate,
-
+    #[regex("OpMemberDecorate")]
+    OpMemberDecorate,
+    #[regex("OpExecutionMode")]
+    OpExecutionMode,
+    #[regex("OpCapability")]
+    OpCapability,
+    #[regex("OpExtension")]
+    OpExtension,
+    #[regex("OpExtInstImport")]
+    OpExtInstImport,
+    #[regex("OpMemoryModel")]
+    OpMemoryModel,
+    #[regex("OpEntryPoint")]
+    OpEntryPoint,
+    #[regex("OpSource")]
+    OpSource,
+    #[regex("OpSourceExtension")]
+    OpSourceExtension,
     #[regex("BuiltIn")]
     BuiltIn,
     #[regex("None")]
@@ -168,8 +194,8 @@ pub enum TokenKind {
     OpTypeStruct,
     #[regex("OpTypePointer")]
     OpTypePointer,
-    // #[regex("OpTypeFunction")]
-    // OpTypeFunction,
+    #[regex("OpTypeFunction")]
+    OpTypeFunction,
 
     // Storage Class
 
@@ -263,8 +289,10 @@ pub enum TokenKind {
     Int,
     #[regex("true|false")]
     Bool,
-    #[regex("\"[a-z]+\"")]
+    #[regex(r#""([^"\\]|\\.)*""#)]
     String,
+    #[regex("[a-zA-Z]+")]
+    Unknown,
     // #[regex("v3uint|uint|bool|void")]
     // Type,
 
@@ -273,8 +301,8 @@ pub enum TokenKind {
     Whitespace,
     #[regex("\n")]
     Newline,
-    #[regex(";")]
-    SemiColon,
+    #[regex(r";[^\n]*", logos::skip)]
+    VersionInfo,
     #[regex("\"")]
     DoubleQuote,
     #[regex(",")]
@@ -325,7 +353,7 @@ impl fmt::Display for TokenKind {
             Self::Bang => "!",
             Self::Comma => "‘,‘",
             Self::Dot => "‘.‘",
-            Self::SemiColon => "‘;‘",
+            // Self::SemiColon => "‘;‘",
             // Self::Percent => "‘%‘",
             Self::DoubleQuote => "‘\"‘",
             Self::OpFunction => "OpFunction",
@@ -546,5 +574,32 @@ mod test {
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Local));
+    }
+
+    #[test]
+    fn test_logos_skip_version_info() {
+        let input = "; SPIR-V
+        ; Version: 1.0
+        ; Generator: Khronos Glslang Reference Front End; 11
+        OpDecorate %gl_SubgroupInvocationID BuiltIn SubgroupLocalInvocationId
+        ";
+        let mut lexer = TokenKind::lexer(input);
+        println!("{:?}", lexer.span());
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Newline));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::OpDecorate));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Ident));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::BuiltIn));
+        assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
+        assert_eq!(
+            lexer.next().unwrap(),
+            Ok(TokenKind::SubgroupLocalInvocationId)
+        );
     }
 }

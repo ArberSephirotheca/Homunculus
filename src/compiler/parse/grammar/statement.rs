@@ -1,15 +1,14 @@
 use crate::compiler::parse::{
-    marker::CompletedMarker,
-    parser::{Parse, Parser},
-    symbol_table::*,
-    syntax::TokenKind,
+    event::Event, lexer::Token, marker::CompletedMarker, parser::{Parse, Parser}, symbol_table::*, syntax::{TokenKind, BUILT_IN_VARIABLE_SET, IGNORED_INSTRUCTION_SET}
 };
 
 pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
     if p.at(TokenKind::Ident) {
-        Some(variable_def(p))
+        variable_def(p)
+    } else if p.at(TokenKind::OpExecutionMode){
+        op_execution_mode_stmt(p)
     } else if p.at(TokenKind::OpDecorate) {
-        Some(op_decorate_stmt(p))
+        op_decorate_stmt(p)
     } else if p.at(TokenKind::OpFunction) {
         Some(op_function_expr(p))
     } else if p.at(TokenKind::OpFunctionEnd) {
@@ -72,46 +71,83 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
         Some(op_loop_merge_statement(p))
     } else if p.at(TokenKind::OpSelectionMerge) {
         Some(op_selection_merge_statement(p))
-    }
-    // else if p.at(TokenKind::OpSwitch){
+    }// else if p.at(TokenKind::OpSwitch){
     //     Some(op_switch_statement(p))
     // }
     else if p.at(TokenKind::OpAtomicExchange) {
         Some(op_atomic_exchange_expr(p))
     } else if p.at(TokenKind::OpAtomicCompareExchange) {
         Some(op_atomic_compare_exchange_expr(p))
-    } else {
+    } else if p.at_set(&IGNORED_INSTRUCTION_SET){
+        skip_ignored_op(p)
+    }
+    else {
         // todo: add more info
         panic!("unexpected token {:?}", p.peek());
     }
 }
 
+
+/// skip ignored instructions
+fn skip_ignored_op(p: &mut Parser) -> Option<CompletedMarker>{
+    let m = p.start();
+    while ! p.at(TokenKind::Newline) {
+        p.bump();
+    }
+    p.expect(TokenKind::Newline);
+    m.complete(p, TokenKind::IgnoredOp);
+    None
+}
+/// example: OpExecutionMode %main LocalSize 256 1 1
+fn op_execution_mode_stmt(p: &mut Parser) -> Option<CompletedMarker> {
+    let m = p.start();
+    // skip OpExecutionMode token
+    p.bump();
+    p.expect(TokenKind::Ident);
+
+    // we only care LocalSize ExecutionMode
+    if p.at(TokenKind::LocalSize) {
+        p.bump();
+        p.expect(TokenKind::Int);
+        p.expect(TokenKind::Int);
+        p.expect(TokenKind::Int);
+        p.expect(TokenKind::Newline);
+        Some(m.complete(p, TokenKind::ExecutionModeStatement))
+    } else {
+        while ! p.at(TokenKind::Newline) {
+            p.bump();
+        }
+        p.expect(TokenKind::Newline);
+        Some(m.complete(p, TokenKind::IgnoredOp))
+    }
+}
 /// example: OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
-/// todo: handle non-built-in decoration
-fn op_decorate_stmt(p: &mut Parser) -> CompletedMarker {
+fn op_decorate_stmt(p: &mut Parser) -> Option<CompletedMarker> {
     let m = p.start();
     // skip OpDecorate token
     p.bump();
     p.expect(TokenKind::Ident);
-    // p.expect(TokenKind::Ident);
-    p.expect(TokenKind::BuiltIn);
-    if p.at(TokenKind::GlobalInvocationId)
-        || p.at(TokenKind::LocalInvocationId)
-        || p.at(TokenKind::WorkgroupId)
-        || p.at(TokenKind::NumWorkgroups)
-        || p.at(TokenKind::WorkgroupSize)
-        || p.at(TokenKind::GlobalInvocationId)
-        || p.at(TokenKind::SubgroupSize)
-        || p.at(TokenKind::NumSubgroups)
-        || p.at(TokenKind::SubgroupId)
-        || p.at(TokenKind::SubgroupLocalInvocationId)
+
+    // we only care BuiltIn decoration
+    if p.at(TokenKind::BuiltIn) {
+        p.bump();
+    } else {
+        while !p.at(TokenKind::Newline) {
+            p.bump();
+        }
+        p.expect(TokenKind::Newline);
+        m.complete(p, TokenKind::IgnoredOp);
+        return None;
+    }
+
+    if p.at_set(&BUILT_IN_VARIABLE_SET)
     {
         p.bump();
     } else {
         p.error();
     }
     p.expect(TokenKind::Newline);
-    m.complete(p, TokenKind::DecorateStatement)
+    Some(m.complete(p, TokenKind::DecorateStatement))
 }
 
 /// example: OpFunction %void None %1
@@ -503,7 +539,6 @@ fn op_loop_merge_statement(p: &mut Parser) -> CompletedMarker {
     m.complete(p, TokenKind::LoopMergeStatement)
 }
 
-
 /// example: OpSelectionMerge %29 None
 fn op_selection_merge_statement(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
@@ -566,10 +601,9 @@ fn op_atomic_compare_exchange_expr(p: &mut Parser) -> CompletedMarker {
     m.complete(p, TokenKind::AtomicExchangeExpr)
 }
 
-fn variable_def(p: &mut Parser) -> CompletedMarker {
+fn variable_def(p: &mut Parser) -> Option<CompletedMarker> {
     let m = p.start();
     // p.expect(TokenKind::Percent);
-
     if p.at(TokenKind::Ident) {
         p.bump();
     } else {
@@ -578,8 +612,12 @@ fn variable_def(p: &mut Parser) -> CompletedMarker {
 
     p.expect(TokenKind::Equal);
 
-    stmt(p);
-    // p.expect(TokenKind::Newline);
-
-    m.complete(p, TokenKind::VariableDef)
+    if stmt(p).is_none() {
+        println!("stmt is none");
+        m.complete(p, TokenKind::IgnoredOp);
+        None
+    }else{
+        Some(m.complete(p, TokenKind::VariableDef))
+    }
+    
 }

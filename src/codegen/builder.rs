@@ -147,7 +147,7 @@ impl InstructionArgumentsBuilder {
     pub fn get_scope(&self) -> Option<InstructionScope> {
         self.scope
     }
-    
+
     pub fn push_argument(mut self, argument: InstructionArgument) -> Self {
         self.arguments.push(argument);
         self
@@ -155,7 +155,9 @@ impl InstructionArgumentsBuilder {
 
     pub fn build(self) -> Result<InstructionArguments> {
         Ok(InstructionArguments {
-            name: self.name.ok_or_else(|| eyre!("Instruction name is required"))?,
+            name: self
+                .name
+                .ok_or_else(|| eyre!("Instruction name is required"))?,
             num_args: self
                 .num_args
                 .ok_or_else(|| eyre!("Number of arguments is required"))?,

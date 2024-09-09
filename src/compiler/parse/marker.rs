@@ -27,6 +27,7 @@ impl Marker {
 
         CompletedMarker { pos: self.pos }
     }
+
 }
 
 impl Drop for Marker {

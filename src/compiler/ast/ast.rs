@@ -2,10 +2,12 @@ use rowan::TokenAtOffset;
 use smallvec::smallvec;
 
 use crate::compiler::parse::symbol_table::{SpirvType, StorageClass};
-use crate::compiler::parse::syntax::{SyntaxElement, SyntaxNode, SyntaxToken, TokenKind};
+use crate::compiler::parse::syntax::{SyntaxElement, SyntaxNode, SyntaxToken, TokenKind, BUILT_IN_VARIABLE_SET};
 
 #[derive(Debug)]
 pub struct Root(SyntaxNode);
+#[derive(Debug)]
+pub struct ExecutionMode(SyntaxNode);
 #[derive(Debug)]
 pub struct DecorateStatement(SyntaxNode);
 #[derive(Debug)]
@@ -83,6 +85,7 @@ pub enum Expr {
 
 #[derive(Debug)]
 pub enum Stmt {
+    ExecutionMode(ExecutionMode),
     DecorateStatement(DecorateStatement),
     VariableDef(VariableDef),
     StoreStatement(StoreStatement),
@@ -136,6 +139,8 @@ impl Expr {
 impl Stmt {
     pub(crate) fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
+            TokenKind::IgnoredOp => None,
+            TokenKind::ExecutionModeStatement => Some(Self::ExecutionMode(ExecutionMode(node))),
             TokenKind::DecorateStatement => Some(Self::DecorateStatement(DecorateStatement(node))),
             TokenKind::VariableDef => Some(Self::VariableDef(VariableDef(node))),
             TokenKind::OpReturn | TokenKind::OpKill => {
@@ -154,6 +159,7 @@ impl Stmt {
             TokenKind::SelectionMergeStatement => {
                 Some(Self::SelectionMergeStatement(SelectionMergeStatement(node)))
             }
+            TokenKind::OpExecutionMode => Some(Self::ExecutionMode(ExecutionMode(node))),
             _ => Some(Self::Expr(Expr::cast(node)?)),
         }
     }
@@ -171,6 +177,7 @@ impl Root {
         }
     }
 }
+
 
 impl TypeExpr {
     pub fn ty(&self) -> SpirvType {
@@ -434,6 +441,28 @@ impl AtomicCompareExchangeExpr {
     }
 }
 
+impl ExecutionMode{
+    pub(crate) fn local_size_x(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Int)
+    }
+    pub(crate) fn local_size_y(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Int)
+            .nth(1)
+    }
+    pub(crate) fn local_size_z(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Int)
+            .nth(2)
+    }
+}
 impl DecorateStatement {
     pub(crate) fn name(&self) -> Option<SyntaxToken> {
         self.0
@@ -447,15 +476,7 @@ impl DecorateStatement {
             .children_with_tokens()
             .filter_map(|x| x.into_token())
             .find(|x| {
-                x.kind() == TokenKind::NumWorkgroups
-                    || x.kind() == TokenKind::WorkgroupSize
-                    || x.kind() == TokenKind::WorkgroupId
-                    || x.kind() == TokenKind::LocalInvocationId
-                    || x.kind() == TokenKind::GlobalInvocationId
-                    || x.kind() == TokenKind::SubgroupSize
-                    || x.kind() == TokenKind::NumSubgroups
-                    || x.kind() == TokenKind::SubgroupId
-                    || x.kind() == TokenKind::SubgroupLocalInvocationId
+                BUILT_IN_VARIABLE_SET.contains(&x.kind())
             })
     }
 }
@@ -522,7 +543,7 @@ mod test {
     use crate::compiler::parse::symbol_table::SpirvType;
     use crate::compiler::parse::symbol_table::StorageClass;
     use crate::compiler::{
-        ast::ast::TypeExpr,
+        ast::ast::Stmt,
         parse::{parser::parse, syntax::TokenKind},
     };
     use expect_test::expect;
@@ -541,7 +562,7 @@ mod test {
         let root = Root::cast(syntax).unwrap();
         let stmt = root.stmts().next().unwrap();
         let type_expr = match stmt {
-            crate::compiler::ast::ast::Stmt::Expr(Expr::TypeExpr(type_expr)) => type_expr,
+            Stmt::Expr(Expr::TypeExpr(type_expr)) => type_expr,
             _ => panic!("Expected variable definition"),
         };
         assert_eq!(type_expr.name().unwrap().text(), "OpTypeInt");
@@ -563,12 +584,50 @@ mod test {
         let root = Root::cast(syntax).unwrap();
         let stmt = root.stmts().next().unwrap();
         let variable_expr = match stmt {
-            crate::compiler::ast::ast::Stmt::Expr(Expr::VariableExpr(variable_expr)) => {
+            Stmt::Expr(Expr::VariableExpr(variable_expr)) => {
                 variable_expr
             }
             _ => panic!("Expected variable definition"),
         };
         assert_eq!(variable_expr.ty_name().unwrap().text(), expected_name);
         assert_eq!(variable_expr.storage_class().unwrap(), StorageClass::Global);
+    }
+
+    #[test]
+    fn check_skip_ignored_instructions(){
+        let input = "OpCapability Shader
+        OpMemoryModel Logical GLSL450
+        OpEntryPoint Fragment %main \"main\" %frag_color
+        %1 = OpExtInstImport \"GLSL.std.450\"
+        OpExecutionMode %main LocalSize 256 1 1
+        OpSource GLSL 450
+        OpSourceExtension \"GL_ARB_separate_shader_objects\"
+        OpName %main \"main\"
+        OpName %frag_color \"frag_color\"
+        OpDecorate %frag_color Location 0
+        OpDecorate %subgroup_size BuiltIn SubgroupSize
+        ";
+        let parse = parse(input);
+        let syntax = parse.syntax();
+        let root = Root::cast(syntax).unwrap();
+        let stmt = root.stmts().next().unwrap();
+        let execution_mode_stmt = match stmt {
+            Stmt::ExecutionMode(exec_mode) => {
+                exec_mode
+            }
+            _ => panic!("Expected execution mode statement, but got {:#?}", stmt),
+        };
+        assert_eq!(execution_mode_stmt.local_size_x().unwrap().text().parse::<u32>(), Ok(256));
+        assert_eq!(execution_mode_stmt.local_size_y().unwrap().text().parse::<u32>(), Ok(1));
+        assert_eq!(execution_mode_stmt.local_size_z().unwrap().text().parse::<u32>(), Ok(1));
+
+        let opdecor_stmt = match root.stmts().nth(1).unwrap(){
+            Stmt::DecorateStatement(decorate_stmt) => decorate_stmt,
+            _ => panic!("Expected decorate statement"),
+        };
+        assert_eq!(opdecor_stmt.name().unwrap().text(), "%subgroup_size");
+        assert_eq!(opdecor_stmt.built_in_var().unwrap().kind(), TokenKind::SubgroupSize);
+        
+
     }
 }

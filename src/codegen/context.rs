@@ -469,6 +469,7 @@ impl CodegenCx {
                 };
 
                 let inst_args = inst_args_builder
+                    .name(InstructionName::Store)
                     .num_args(2)
                     .push_argument(arg1)
                     .push_argument(arg2)
@@ -497,6 +498,7 @@ impl CodegenCx {
                     .build()
                     .unwrap();
                 let inst_args = inst_args_builder
+                    .name(InstructionName::Branch)
                     .num_args(1)
                     .push_argument(arg)
                     .scope(InstructionScope::None)
@@ -548,6 +550,7 @@ impl CodegenCx {
                         .unwrap();
 
                     let inst_args = inst_args_builder
+                        .name(InstructionName::BranchConditional)
                         .num_args(3)
                         .push_argument(arg1)
                         .push_argument(arg2)
@@ -629,12 +632,12 @@ impl CodegenCx {
                     .unwrap();
 
                 let inst_args = inst_args_builder
-                .name(InstructionName::SelectionMerge)
-                .num_args(1)
-                .push_argument(arg)
-                .scope(InstructionScope::None)
-                .build()
-                .unwrap();
+                    .name(InstructionName::SelectionMerge)
+                    .num_args(1)
+                    .push_argument(arg)
+                    .scope(InstructionScope::None)
+                    .build()
+                    .unwrap();
 
                 Some(
                     Instruction::builder()
@@ -816,7 +819,7 @@ mod test {
         let program = codegen_ctx.generate_code(syntax);
         let builtin_variable_decl = program.instructions.get(0).unwrap();
 
-        assert_eq!(builtin_variable_decl.name, InstructionName::Load);
+        assert_eq!(builtin_variable_decl.name, InstructionName::Assignment);
         assert_eq!(builtin_variable_decl.arguments.num_args, 1);
         assert_eq!(
             builtin_variable_decl.arguments.arguments[0].name,
@@ -1088,7 +1091,7 @@ mod test {
     }
 
     #[test]
-    fn check_selection_merge(){
+    fn check_selection_merge() {
         let input = "%1 = OpLabel
         %2 = OpLabel
         OpSelectionMerge %2 None

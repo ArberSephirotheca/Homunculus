@@ -69,6 +69,10 @@ impl<'l, 't> Parser<'l, 't> {
         Marker::new(pos)
     }
 
+    // pub(crate) fn abandon_curr_event(&mut self) {
+    //     self.events.pop();
+    // }
+
     pub(crate) fn expect(&mut self, kind: TokenKind) {
         if self.at(kind) {
             self.bump();
@@ -82,6 +86,15 @@ impl<'l, 't> Parser<'l, 't> {
         self.peek() == Some(kind)
     }
 
+    // pub(crate) fn skip(&mut self) {
+    //     self.source.next_token().unwrap();
+    // }
+
+    // pub(crate) fn skip_until(&mut self, kind: TokenKind) {
+    //     while !self.at(kind) {
+    //         self.skip();
+    //     }
+    // }
     pub(crate) fn error(&mut self) {
         let current_token = self.source.peek_token();
 
@@ -99,14 +112,15 @@ impl<'l, 't> Parser<'l, 't> {
             range,
         }));
 
-        if !self.at_set(&RECOVERY_SET) && !self.at_end() {
+        // if !self.at_set(&RECOVERY_SET) && !self.at_end() {
+        if !self.at_end() {
             let m = self.start();
             self.bump();
             m.complete(self, TokenKind::Error);
         }
     }
 
-    fn at_set(&mut self, set: &[TokenKind]) -> bool {
+    pub(crate) fn at_set(&mut self, set: &[TokenKind]) -> bool {
         self.peek().map_or(false, |k| set.contains(&k))
     }
 

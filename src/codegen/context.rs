@@ -3,7 +3,7 @@ use crate::compiler::ast::ast::{BinaryExpr, Expr, ResultType, Root, Stmt};
 use crate::compiler::parse::symbol_table::*;
 use crate::compiler::parse::syntax::SyntaxNode;
 
-use super::builder::{InstructionArgumentsBuilder, InstructionBuilder, ProgramBuilder};
+use super::builder::InstructionArgumentsBuilder;
 use super::common::{
     Instruction, InstructionArgument, InstructionArguments, InstructionBuiltInVariable,
     InstructionScope, InstructionValue, Program, Scheduler, VariableScope,
@@ -71,7 +71,10 @@ impl CodegenCx {
             SpirvType::Void => (InstructionValue::None, IndexKind::Literal(-1)),
             SpirvType::Function { .. } => (InstructionValue::None, IndexKind::Literal(-1)),
             SpirvType::Bool => (InstructionValue::Bool(true), IndexKind::Literal(-1)),
-            SpirvType::Int { width, signed } => (InstructionValue::Int(0), IndexKind::Literal(-1)),
+            SpirvType::Int {
+                width: _,
+                signed: _,
+            } => (InstructionValue::Int(0), IndexKind::Literal(-1)),
             SpirvType::Vector { element, count } => {
                 let real_type = self.lookup_type(element.as_str()).unwrap();
                 (
@@ -451,10 +454,8 @@ impl CodegenCx {
                 let inst_arg_builder = InstructionArgument::builder();
                 // fixme: error handling
                 let ty_name = var_expr.ty_name().unwrap();
-                println!("ty_name {:#?}", ty_name);
                 // get the actual type of the variable
                 let built_in = self.built_in_variable(var_name.as_str());
-                println!("Built-in variable {:#?}", built_in);
 
                 let spirv_type = match self.lookup_type(ty_name.text()) {
                     Some(ty) => ty,
@@ -1338,7 +1339,6 @@ impl CodegenCx {
             // }
             Stmt::VariableDef(var_def) => {
                 let inst_builder = Instruction::builder();
-                println!("Variable definition {:#?}", var_def);
                 let var_name = var_def.name().unwrap().text().to_string();
                 let expr = var_def
                     .value()
@@ -1612,7 +1612,7 @@ impl CodegenCx {
         }
     }
 
-    fn generate_code(&mut self, root: SyntaxNode) -> Program {
+    pub(crate) fn generate_code(&mut self, root: SyntaxNode) -> Program {
         let mut program_builder = Program::builder();
         let root = Root::cast(root).unwrap();
         // first pass: construct symbol table
@@ -1626,11 +1626,11 @@ impl CodegenCx {
                 None => { /* do nothing */ }
             }
         }
-        // let workgroup_size = self.lookup_variable("%gl_WorkGroupSize").unwrap();
 
+        let global_variables = self.get_global_variables();
         // fixme: remove the hardcoded values
         program_builder
-            .num_threads(1)
+            .global_var(global_variables)
             .num_work_groups(1)
             .work_group_size(1)
             .subgroup_size(1)
@@ -1638,12 +1638,14 @@ impl CodegenCx {
             .build()
             .unwrap()
     }
+
+    pub(crate) fn get_global_variables(&self) -> Vec<VariableInfo> {
+        self.variable_table.get_global_variables()
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::ast::Expr;
-    use crate::ast::Root;
     use crate::codegen::common::IndexKind;
     use crate::codegen::common::InstructionName;
     use crate::codegen::common::InstructionScope;
@@ -1652,12 +1654,9 @@ mod test {
     use crate::codegen::context::InstructionBuiltInVariable::SubgroupLocalInvocationId;
     use crate::codegen::context::InstructionValue;
     use crate::codegen::context::VariableInfo;
+    use crate::compiler::parse::parser::parse;
     use crate::compiler::parse::symbol_table::SpirvType;
     use crate::compiler::parse::symbol_table::StorageClass;
-    use crate::compiler::{
-        ast::ast::TypeExpr,
-        parse::{parser::parse, syntax::TokenKind},
-    };
 
     use super::CodegenCx;
     fn check(input: &str, expected_tree: expect_test::Expect) {
@@ -1744,7 +1743,7 @@ mod test {
 
         let syntax = parse(input).syntax();
         let mut codegen_ctx = CodegenCx::new();
-        let program = codegen_ctx.generate_code(syntax);
+        codegen_ctx.generate_code(syntax);
         assert_ne!(codegen_ctx.lookup_variable("%11"), None);
         let const_val = codegen_ctx.lookup_variable("%11").unwrap();
         assert_eq!(const_val.get_constant_int(), -5);
@@ -1758,7 +1757,7 @@ mod test {
 
         let syntax = parse(input).syntax();
         let mut codegen_ctx = CodegenCx::new();
-        let program = codegen_ctx.generate_code(syntax);
+        codegen_ctx.generate_code(syntax);
         assert_ne!(codegen_ctx.lookup_variable("%11"), None);
         let const_val = codegen_ctx.lookup_variable("%11").unwrap();
         assert_eq!(const_val.get_constant_bool(), true);
@@ -1772,7 +1771,7 @@ mod test {
 
         let syntax = parse(input).syntax();
         let mut codegen_ctx = CodegenCx::new();
-        let program = codegen_ctx.generate_code(syntax);
+        codegen_ctx.generate_code(syntax);
         assert_ne!(codegen_ctx.lookup_variable("%11"), None);
         let const_val = codegen_ctx.lookup_variable("%11").unwrap();
         assert_eq!(const_val.get_constant_bool(), false);
@@ -1814,7 +1813,6 @@ mod test {
         );
 
         let var_load = program.instructions.get(1).unwrap();
-        println!("{:#?}", var_load);
         assert_eq!(var_load.arguments.num_args, 2);
         assert_eq!(var_load.arguments.arguments[0].name, "%11");
         assert_eq!(
@@ -1924,7 +1922,7 @@ mod test {
         ";
         let syntax = parse(input).syntax();
         let mut codegen_ctx = CodegenCx::new();
-        let program = codegen_ctx.generate_code(syntax);
+        codegen_ctx.generate_code(syntax);
         let var_info = codegen_ctx.lookup_variable("%11");
         assert_ne!(var_info, None);
         let var_info = var_info.unwrap();

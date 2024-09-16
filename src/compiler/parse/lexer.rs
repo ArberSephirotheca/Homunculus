@@ -1,6 +1,5 @@
 use crate::compiler::parse::syntax::TokenKind;
 use logos::Logos;
-use num_derive::{FromPrimitive, ToPrimitive};
 use std::ops::Range as StdRange;
 use text_size::{TextRange, TextSize};
 // wrapper for logo's lexer, so we can get inner value of token
@@ -122,32 +121,4 @@ impl<'t> Iterator for Lexer<'t> {
     // }
 }
 
-mod test {
-    use super::TokenKind;
-    use logos::Logos;
-
-    // #[test]
-    // fn test_iterator_next() {
-    //     let input = "; SPIR-V
-    //     ; Version: 1.0
-    //     ; Generator: Khronos Glslang Reference Front End; 11
-    //     ; Bound: 61
-    //     ; Schema: 0
-    //                    OpCapability Shader
-    //                    OpCapability GroupNonUniform
-    //               %1 = OpExtInstImport \"GLSL.std.450\"
-    //                    OpMemoryModel Logical GLSL450
-    //                    OpEntryPoint GLCompute %main \"main\" %gl_SubgroupInvocationID
-    //                    OpExecutionMode %main LocalSize 256 1 1
-    //                    OpSource GLSL 450
-    //                    OpSourceExtension \"GL_EXT_shader_atomic_float\"
-    //                    OpSourceExtension \"GL_KHR_shader_subgroup_basic\"
-    //                    OpDecorate %gl_SubgroupInvocationID RelaxedPrecision
-    //                    OpDecorate %gl_SubgroupInvocationID BuiltIn SubgroupLocalInvocationId
-    //                    OpDecorate %27 RelaxedPrecision
-    //                    OpDecorate %gl_WorkGroupSize BuiltIn WorkgroupSize
-    //                    %main = OpFunction %void None %3
-    //                    %5 = OpLabel
-    //     ";
-    // }
-}
+mod test {}

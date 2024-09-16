@@ -1,7 +1,6 @@
 use super::{event::Event, parser::Parse, parser_error::ParseError, syntax::AsukaLanguage};
 use crate::compiler::parse::lexer::Token;
-use crate::compiler::parse::syntax::TokenKind;
-use rowan::{GreenNode, GreenNodeBuilder, Language};
+use rowan::{GreenNodeBuilder, Language};
 use std::mem;
 
 pub(super) struct Sink<'l, 't> {

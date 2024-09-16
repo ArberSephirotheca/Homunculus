@@ -1,11 +1,14 @@
 //! common is used to stored the common program information(e.g. number of blocks, subgroup size, thread numbers,...) in the codegen module.
 
 use super::constant::Constant;
-use crate::compiler::{
-    ast::ast::{Expr, Stmt},
-    parse::symbol_table::{BuiltInVariable, SpirvType, StorageClass, VariableInfo},
-};
+use crate::compiler::parse::symbol_table::{BuiltInVariable, StorageClass, VariableInfo};
+use camino::Utf8Path;
 use smallvec::SmallVec;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+
+static LAYOUT_CONFIG_HINT: &str = "(* Layout Configuration *)";
+static PROGRAM_HINT: &str = "(* Program *)";
 
 #[derive(Debug)]
 pub enum BinaryExpr {
@@ -129,13 +132,6 @@ pub enum Scheduler {
 }
 
 #[derive(Debug)]
-pub struct GlobalVar {
-    pub name: String,
-    pub value: InstructionValue,
-    pub index: IndexKind,
-}
-
-#[derive(Debug)]
 pub struct InstructionArgument {
     pub name: String,
     pub scope: VariableScope,
@@ -173,7 +169,7 @@ pub struct Thread {
 /// `constants: Vec<Constant>` is a vector of constants.
 #[derive(Debug)]
 pub struct Program {
-    pub global_vars: Vec<GlobalVar>,
+    pub global_vars: Vec<VariableInfo>,
     pub subgroup_size: u32,
     pub work_group_size: u32,
     pub num_work_groups: u32,
@@ -181,4 +177,65 @@ pub struct Program {
     pub scheduler: Scheduler,
     pub instructions: SmallVec<[Instruction; 10]>,
     pub constants: SmallVec<[Constant; 10]>,
+}
+impl Program {
+    fn new_tla_variable(&self, var: &VariableInfo) -> String {
+        let name = &var.id;
+        let output = format!("Var({} : {})", name, var.data_type);
+    }
+
+    fn new_tla_constant(&self, var_name : String, value : String) -> String {
+        let name = &constant.id;
+        format!("{} = {}", name, constant.value)
+    }
+    pub fn write_to_file(&self, path: &Utf8Path) -> Result<(), std::io::Error> {
+        // Open the file for reading
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+
+        // Read all lines into a vector
+        let mut lines: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
+
+        // Find the index of the line that matches the hint
+        if let Some(index) = lines.iter().position(|line| line.trim() == LAYOUT_CONFIG_HINT) {
+            // Insert the new content after the hint line
+            lines.insert(index + 1, );
+
+            // Open the file for writing (truncate existing content)
+            let mut file = OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(file_path)?;
+
+            // Write all lines back to the file
+            for line in lines {
+                writeln!(file, "{}", line)?;
+            }
+        } else {
+            eprintln!("Hint not found: {}", hint);
+        }
+
+        Ok(())
+    }
+
+    fn write_to_global_vars(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()> {
+        // Write global variables to the writer
+        for var in &self.global_vars {
+            writeln!(writer, "{:?}", var)?;
+        }
+        Ok(())
+    }
+
+    fn write_to_constant(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()> {
+        // Write constants to the writer
+        for constant in &self.constants {
+            writeln!(writer, "{:?}", constant)?;
+        }
+        Ok(())
+    }
+
+    fn write_built_in_variables(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()> {
+        // Write built-in variables to the writer
+        Ok(())
+    }
 }

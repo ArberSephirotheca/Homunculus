@@ -270,7 +270,6 @@ impl TypeExpr {
             TokenKind::OpTypeRuntimeArray => todo!(),
             TokenKind::OpTypeStruct => todo!(),
             TokenKind::OpTypePointer => {
-                println!("{:#?}", tokens);
                 let storage_class = &tokens[1];
                 let ty = &tokens[2];
                 SpirvType::Pointer {
@@ -632,8 +631,8 @@ impl SelectionMergeStatement {
 
 #[cfg(test)]
 mod test {
-    use crate::ast::Expr;
-    use crate::ast::Root;
+    use super::Expr;
+    use super::Root;
     use crate::compiler::parse::symbol_table::SpirvType;
     use crate::compiler::parse::symbol_table::StorageClass;
     use crate::compiler::{

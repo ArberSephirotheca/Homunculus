@@ -1,8 +1,7 @@
-use logos::{Filter, Logos};
+use logos::Logos;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::fmt;
-use std::ops::BitOr;
 
 #[derive(Debug, Hash, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum AsukaLanguage {}
@@ -596,7 +595,6 @@ mod test {
         OpDecorate %gl_SubgroupInvocationID BuiltIn SubgroupLocalInvocationId
         ";
         let mut lexer = TokenKind::lexer(input);
-        println!("{:?}", lexer);
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));
         assert_eq!(lexer.next().unwrap(), Ok(TokenKind::Whitespace));

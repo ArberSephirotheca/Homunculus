@@ -1,4 +1,4 @@
-use crate::compiler::parse::symbol_table::SpirvType;
+use crate::compiler::parse::symbol_table::VariableInfo;
 
 use super::common::*;
 use super::constant::*;
@@ -26,38 +26,6 @@ impl ConstantBuilder {
         Ok(Constant {
             name: self.name.ok_or_else(|| eyre!("Name is required"))?,
             value: self.value.ok_or_else(|| eyre!("Value is required"))?,
-        })
-    }
-}
-
-#[derive(Default)]
-pub struct GlobalVarBuilder {
-    name: Option<String>,
-    value: Option<InstructionValue>,
-    index: Option<IndexKind>,
-}
-
-impl GlobalVarBuilder {
-    pub fn name(mut self, name: String) -> Self {
-        self.name = Some(name);
-        self
-    }
-
-    pub fn value(mut self, value: InstructionValue) -> Self {
-        self.value = Some(value);
-        self
-    }
-
-    pub fn index(mut self, index: IndexKind) -> Self {
-        self.index = Some(index);
-        self
-    }
-
-    pub fn build(self) -> Result<GlobalVar> {
-        Ok(GlobalVar {
-            name: self.name.ok_or_else(|| eyre!("Name is required"))?,
-            value: self.value.ok_or_else(|| eyre!("Value is required"))?,
-            index: self.index.ok_or_else(|| eyre!("Index is required"))?,
         })
     }
 }
@@ -237,7 +205,7 @@ impl Program {
 
 #[derive(Default)]
 pub struct ProgramBuilder {
-    global_vars: Vec<GlobalVar>,
+    global_vars: Vec<VariableInfo>,
     subgroup_size: Option<u32>,
     work_group_size: Option<u32>,
     num_work_groups: Option<u32>,
@@ -249,8 +217,8 @@ pub struct ProgramBuilder {
 }
 
 impl ProgramBuilder {
-    pub fn global_var(mut self, global_var: GlobalVar) -> Self {
-        self.global_vars.push(global_var);
+    pub fn global_var(mut self, global_vars: Vec<VariableInfo>) -> Self {
+        self.global_vars.extend(global_vars);
         self
     }
 

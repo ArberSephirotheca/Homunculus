@@ -5,12 +5,7 @@
 //! for variable table, we have a struct SymbolTable with a method insert and lookup
 //! Whenever we encounter a variable declaration (e.g. `OpVariable`), we add it to the variable table
 use super::syntax::TokenKind;
-use crate::compiler::parse::syntax::SyntaxNode;
-use eyre::Result;
-use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::sync::Arc;
-
 type VariableSymbol = String;
 type TypeSymbol = String;
 type ConstantSymbol = String;
@@ -385,6 +380,10 @@ impl VariableSymbolTable {
             return Some(var.clone());
         }
         None
+    }
+
+    pub fn get_global_variables(&self) -> Vec<VariableInfo> {
+        self.global.values().cloned().collect()
     }
 }
 

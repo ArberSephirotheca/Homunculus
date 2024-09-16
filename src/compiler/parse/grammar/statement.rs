@@ -700,7 +700,6 @@ fn variable_def(p: &mut Parser) -> Option<CompletedMarker> {
     p.expect(TokenKind::Equal);
 
     if stmt(p).is_none() {
-        println!("stmt is none");
         m.complete(p, TokenKind::IgnoredOp);
         None
     } else {

@@ -1,10 +1,1 @@
-# Homunculus
-
-# Supported type
-- uint
-- bool
-- string
-- array
-
-# Restriction
-- Can only have one member in `OpName`
+Transpiler that takes GLSL code and emit to TLA+ for forward progress model verfication.

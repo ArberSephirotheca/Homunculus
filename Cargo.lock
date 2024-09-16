@@ -13,8 +13,12 @@ dependencies = [
  "logos",
  "num-derive",
  "num-traits",
+ "proc-macro2",
+ "quote",
  "rowan",
  "smallvec",
+ "syn",
+ "syntax_node_derive",
  "text-size",
 ]
 
@@ -218,6 +222,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "syntax_node_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

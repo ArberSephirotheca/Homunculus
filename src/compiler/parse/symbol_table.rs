@@ -28,6 +28,8 @@ pub(crate) enum StorageClass {
     Local,
     // This is for intermediate SSA variables
     Intermediate,
+    // This is for constant variables
+    Constant,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -68,6 +70,10 @@ pub(crate) enum SpirvType {
     // BuiltIn {
     //     built_in: BuiltInVariable,
     // },
+    Void,
+    Function {
+        return_type: TypeSymbol,
+    },
     Bool,
     Int {
         width: u32,
@@ -179,6 +185,7 @@ pub struct VariableInfo {
     pub ty: SpirvType,
     pub access_chain: Vec<AccessStep>,
     pub storage_class: StorageClass,
+    pub const_value: Option<ConstantInfo>,
     pub built_in: Option<BuiltInVariable>,
 }
 
@@ -189,9 +196,10 @@ impl VariableInfo {
         // by multiple variables in different scopes
         // such as OpAccessChain and OpLoad
         id: String,
-        access_chain: Vec<AccessStep>,
         ty: SpirvType,
+        access_chain: Vec<AccessStep>,
         storage_class: StorageClass,
+        const_value: Option<ConstantInfo>,
         built_in: Option<BuiltInVariable>,
     ) -> Self {
         Self {
@@ -199,25 +207,47 @@ impl VariableInfo {
             ty,
             access_chain,
             storage_class,
+            const_value,
             built_in,
         }
     }
 
-    pub fn get_var_name(&self) -> String {
+    pub(crate) fn new_const_int(id: String, value: i32, signed: bool) -> Self {
+        Self {
+            id,
+            ty: SpirvType::Int { width: 32, signed },
+            access_chain: vec![],
+            storage_class: StorageClass::Constant,
+            const_value: Some(ConstantInfo::new_int(value, signed)),
+            built_in: None,
+        }
+    }
+    pub(crate) fn new_const_bool(id: String, value: bool) -> Self {
+        Self {
+            id,
+            ty: SpirvType::Bool,
+            access_chain: vec![],
+            storage_class: StorageClass::Constant,
+            const_value: Some(ConstantInfo::new_bool(value)),
+            built_in: None,
+        }
+    }
+
+    pub(crate) fn get_var_name(&self) -> String {
         self.id.clone()
     }
-    pub fn is_builtin(&self) -> bool {
+    pub(crate) fn is_builtin(&self) -> bool {
         self.built_in.is_some()
     }
 
-    pub fn get_builtin(&self) -> Option<BuiltInVariable> {
+    pub(crate) fn get_builtin(&self) -> Option<BuiltInVariable> {
         self.built_in.clone()
     }
-    pub fn get_ty(&self) -> SpirvType {
+    pub(crate) fn get_ty(&self) -> SpirvType {
         self.ty.clone()
     }
 
-    pub fn get_storage_class(&self) -> StorageClass {
+    pub(crate) fn get_storage_class(&self) -> StorageClass {
         self.storage_class.clone()
     }
 
@@ -227,11 +257,65 @@ impl VariableInfo {
     //         _ => -1,
     //     }
     // }
-    pub fn is_intermediate(&self) -> bool {
+    pub(crate) fn is_intermediate(&self) -> bool {
         if self.get_storage_class() == StorageClass::Intermediate {
             true
         } else {
             false
+        }
+    }
+
+    pub(crate) fn is_global(&self) -> bool {
+        if self.get_storage_class() == StorageClass::Global {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn is_shared(&self) -> bool {
+        if self.get_storage_class() == StorageClass::Shared {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn is_local(&self) -> bool {
+        if self.get_storage_class() == StorageClass::Local {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn is_constant(&self) -> bool {
+        if self.get_storage_class() == StorageClass::Constant {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn get_constant_int(&self) -> i32 {
+        if self.is_constant() {
+            match &self.const_value {
+                Some(ConstantInfo::Int { value, .. }) => *value,
+                _ => panic!("Invalid constant type for get_constant_int"),
+            }
+        } else {
+            panic!("Not a constant variable");
+        }
+    }
+
+    pub(crate) fn get_constant_bool(&self) -> bool {
+        if self.is_constant() {
+            match &self.const_value {
+                Some(ConstantInfo::Bool { value }) => *value,
+                _ => panic!("Invalid constant type for get_constant_bool"),
+            }
+        } else {
+            panic!("Not a constant variable");
         }
     }
 }
@@ -251,6 +335,7 @@ pub struct VariableSymbolTable {
     global: Scope,
     shared: Scope,
     local: Scope,
+    constant: Scope,
 }
 
 impl VariableSymbolTable {
@@ -260,6 +345,7 @@ impl VariableSymbolTable {
             global: HashMap::new(),
             shared: HashMap::new(),
             local: HashMap::new(),
+            constant: HashMap::new(),
         }
     }
 
@@ -278,6 +364,9 @@ impl VariableSymbolTable {
             StorageClass::Intermediate => {
                 self.local.insert(var_name, var_info);
             }
+            StorageClass::Constant => {
+                self.constant.insert(var_name, var_info);
+            }
         }
     }
 
@@ -290,6 +379,9 @@ impl VariableSymbolTable {
             return Some(var.clone());
         }
         if let Some(var) = self.global.get(name) {
+            return Some(var.clone());
+        }
+        if let Some(var) = self.constant.get(name) {
             return Some(var.clone());
         }
         None

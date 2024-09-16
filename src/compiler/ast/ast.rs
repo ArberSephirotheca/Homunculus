@@ -1,8 +1,20 @@
 use rowan::TokenAtOffset;
 use smallvec::smallvec;
+use syntax_node_derive::{BinaryExpr, ResultType};
 
 use crate::compiler::parse::symbol_table::{SpirvType, StorageClass};
-use crate::compiler::parse::syntax::{SyntaxElement, SyntaxNode, SyntaxToken, TokenKind, BUILT_IN_VARIABLE_SET};
+use crate::compiler::parse::syntax::{
+    SyntaxElement, SyntaxNode, SyntaxToken, TokenKind, BUILT_IN_VARIABLE_SET,
+};
+
+pub trait ResultType {
+    fn result_type(&self) -> Option<SyntaxToken>;
+}
+
+pub trait BinaryExpr {
+    fn first_operand(&self) -> Option<SyntaxToken>;
+    fn second_operand(&self) -> Option<SyntaxToken>;
+}
 
 #[derive(Debug)]
 pub struct Root(SyntaxNode);
@@ -16,41 +28,50 @@ pub struct VariableRef(SyntaxNode);
 pub struct VariableDef(SyntaxNode);
 #[derive(Debug)]
 pub struct FuncStatement(SyntaxNode);
-#[derive(Debug)]
+#[derive(Debug, ResultType)]
 pub struct VariableExpr(SyntaxNode);
 #[derive(Debug)]
 pub struct TypeExpr(SyntaxNode);
 
 #[derive(Debug)]
 pub struct LabelExpr(SyntaxNode);
-#[derive(Debug)]
+#[derive(Debug, ResultType)]
 pub struct LoadExpr(SyntaxNode);
 #[derive(Debug)]
 pub struct StoreStatement(SyntaxNode);
-#[derive(Debug)]
+#[derive(Debug, ResultType)]
 pub struct ConstExpr(SyntaxNode);
-#[derive(Debug)]
+#[derive(Debug, ResultType)]
 pub struct ConstTrueExpr(SyntaxNode);
-#[derive(Debug)]
+#[derive(Debug, ResultType)]
 pub struct ConstFalseExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct EqualExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct NotEqualExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct LessThanExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct GreaterThanExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct LessThanEqualExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct GreaterThanEqualExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct AtomicExchangeExpr(SyntaxNode);
-#[derive(Debug)]
-pub struct AtomicCompareExchangeExpr(SyntaxNode);
 
-#[derive(Debug)]
+#[derive(Debug, ResultType, BinaryExpr)]
+pub struct AddExpr(SyntaxNode);
+
+#[derive(Debug, ResultType, BinaryExpr)]
+pub struct SubExpr(SyntaxNode);
+
+#[derive(Debug, ResultType, BinaryExpr)]
+pub struct MulExpr(SyntaxNode);
+
+#[derive(Debug, ResultType, BinaryExpr)]
+pub struct EqualExpr(SyntaxNode);
+#[derive(Debug, ResultType, BinaryExpr)]
+pub struct NotEqualExpr(SyntaxNode);
+#[derive(Debug, ResultType, BinaryExpr)]
+pub struct LessThanExpr(SyntaxNode);
+#[derive(Debug, ResultType, BinaryExpr)]
+pub struct GreaterThanExpr(SyntaxNode);
+#[derive(Debug, ResultType, BinaryExpr)]
+pub struct LessThanEqualExpr(SyntaxNode);
+#[derive(Debug, ResultType, BinaryExpr)]
+pub struct GreaterThanEqualExpr(SyntaxNode);
+#[derive(Debug, ResultType)]
+pub struct AtomicExchangeExpr(SyntaxNode);
+#[derive(Debug, ResultType)]
+pub struct AtomicCompareExchangeExpr(SyntaxNode);
+#[derive(Debug, ResultType)]
 pub struct ReturnStatement(SyntaxNode);
 #[derive(Debug)]
 pub struct BranchConditionalStatement(SyntaxNode);
@@ -67,12 +88,16 @@ pub struct SelectionMergeStatement(SyntaxNode);
 pub enum Expr {
     VariableExpr(VariableExpr),
     TypeExpr(TypeExpr),
+    ExecutionModeExpr(ExecutionMode),
     VariableRef(VariableRef),
     LabelExpr(LabelExpr),
     LoadExpr(LoadExpr),
     ConstExpr(ConstExpr),
     ConstTrueExpr(ConstTrueExpr),
     ConstFalseExpr(ConstFalseExpr),
+    AddExpr(AddExpr),
+    SubExpr(SubExpr),
+    MulExpr(MulExpr),
     EqualExpr(EqualExpr),
     NotEqualExpr(NotEqualExpr),
     LessThanExpr(LessThanExpr),
@@ -99,10 +124,23 @@ pub enum Stmt {
     Expr(Expr),
 }
 
+// pub(crate) static BINARY_EXPRESSION_SET : [TokenKind;9] = [
+//     TokenKind::AddExpr,
+//     TokenKind::SubExpr,
+//     TokenKind::MulExpr,
+//     TokenKind::EqualExpr,
+//     TokenKind::NotEqualExpr,
+//     TokenKind::LessThanExpr,
+//     TokenKind::GreaterThanExpr,
+//     TokenKind::LessThanEqualExpr,
+//     TokenKind::GreaterThanEqualExpr,
+// ];
 impl Expr {
     pub(crate) fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            TokenKind::TypeBoolExpr
+            TokenKind::TypeFunctionExpr
+            | TokenKind::TypeVoidExpr
+            | TokenKind::TypeBoolExpr
             | TokenKind::TypeIntExpr
             | TokenKind::TypeVectorExpr
             | TokenKind::TypeArrayExpr
@@ -117,10 +155,13 @@ impl Expr {
             // TokenKind::ConstantCompositeExpr => Some(Self::ConstExpr(ConstExpr(node))),
             TokenKind::ConstantTrueExpr => Some(Self::ConstTrueExpr(ConstTrueExpr(node))),
             TokenKind::ConstantFalseExpr => Some(Self::ConstFalseExpr(ConstFalseExpr(node))),
+            TokenKind::AddExpr => Some(Self::AddExpr(AddExpr(node))),
+            TokenKind::SubExpr => Some(Self::SubExpr(SubExpr(node))),
+            TokenKind::MulExpr => Some(Self::MulExpr(MulExpr(node))),
             TokenKind::EqualExpr => Some(Self::EqualExpr(EqualExpr(node))),
             TokenKind::NotEqualExpr => Some(Self::NotEqualExpr(NotEqualExpr(node))),
             TokenKind::GreaterThanExpr => Some(Self::GreaterThanExpr(GreaterThanExpr(node))),
-            TokenKind::GreaterEqualThanExpr => {
+            TokenKind::GreaterThanEqualExpr => {
                 Some(Self::GreaterThanEqualExpr(GreaterThanEqualExpr(node)))
             }
             TokenKind::LessThanExpr => Some(Self::LessThanExpr(LessThanExpr(node))),
@@ -143,9 +184,7 @@ impl Stmt {
             TokenKind::ExecutionModeStatement => Some(Self::ExecutionMode(ExecutionMode(node))),
             TokenKind::DecorateStatement => Some(Self::DecorateStatement(DecorateStatement(node))),
             TokenKind::VariableDef => Some(Self::VariableDef(VariableDef(node))),
-            TokenKind::OpReturn | TokenKind::OpKill => {
-                Some(Self::ReturnStatement(ReturnStatement(node)))
-            }
+            TokenKind::ReturnStatement => Some(Self::ReturnStatement(ReturnStatement(node))),
             TokenKind::StoreStatement => Some(Self::StoreStatement(StoreStatement(node))),
 
             TokenKind::BranchConditionalStatement => Some(Self::BranchConditionalStatement(
@@ -159,7 +198,6 @@ impl Stmt {
             TokenKind::SelectionMergeStatement => {
                 Some(Self::SelectionMergeStatement(SelectionMergeStatement(node)))
             }
-            TokenKind::OpExecutionMode => Some(Self::ExecutionMode(ExecutionMode(node))),
             _ => Some(Self::Expr(Expr::cast(node)?)),
         }
     }
@@ -177,7 +215,6 @@ impl Root {
         }
     }
 }
-
 
 impl TypeExpr {
     pub fn ty(&self) -> SpirvType {
@@ -216,6 +253,10 @@ impl TypeExpr {
                     _ => panic!("Invalid width {:#?}, and signed value {:#?}", width, signed),
                 }
             }
+            TokenKind::OpTypeVoid => SpirvType::Void,
+            // TokenKind::OpTypeFunction => SpirvType::Function {
+            //     return_type: tokens[1].to_string(),
+            // },
             TokenKind::OpTypeVector => {
                 // fixme: error handling
                 let inner_ty_symbol = &tokens[1];
@@ -392,7 +433,24 @@ impl ConstExpr {
     }
 }
 
-impl ConstFalseExpr {}
+impl AddExpr {
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl SubExpr {
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
+impl MulExpr {
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+}
+
 impl EqualExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
@@ -402,6 +460,13 @@ impl EqualExpr {
 impl NotEqualExpr {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
+    }
+
+    pub(crate) fn ty(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
     }
 }
 
@@ -417,31 +482,49 @@ impl GreaterThanExpr {
     }
 }
 
-impl LessThanEqualExpr {
-    pub(crate) fn expr(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
-    }
-}
+impl LessThanEqualExpr {}
 
-impl GreaterThanEqualExpr {
-    pub(crate) fn expr(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
-    }
-}
+impl GreaterThanEqualExpr {}
 
 impl AtomicExchangeExpr {
-    pub(crate) fn expr(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
+    pub(crate) fn pointer(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Ident)
+            .nth(1)
+    }
+
+    pub(crate) fn memory(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Ident)
+            .nth(2)
+    }
+
+    pub(crate) fn memory_semantics(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Ident)
+            .nth(3)
+    }
+
+    pub(crate) fn value(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(
+                |x: &rowan::SyntaxToken<crate::compiler::parse::syntax::AsukaLanguage>| {
+                    x.kind() == TokenKind::Ident
+                },
+            )
+            .nth(4)
     }
 }
 
-impl AtomicCompareExchangeExpr {
-    pub(crate) fn expr(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
-    }
-}
-
-impl ExecutionMode{
+impl ExecutionMode {
     pub(crate) fn local_size_x(&self) -> Option<SyntaxToken> {
         self.0
             .children_with_tokens()
@@ -475,9 +558,7 @@ impl DecorateStatement {
         self.0
             .children_with_tokens()
             .filter_map(|x| x.into_token())
-            .find(|x| {
-                BUILT_IN_VARIABLE_SET.contains(&x.kind())
-            })
+            .find(|x| BUILT_IN_VARIABLE_SET.contains(&x.kind()))
     }
 }
 
@@ -524,7 +605,20 @@ impl SwitchStatement {
 }
 
 impl LoopMergeStatement {
-    // todo: implement
+    pub(crate) fn merge_label(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
+
+    pub(crate) fn continue_label(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|x| x.kind() == TokenKind::Ident)
+            .nth(1)
+    }
 }
 
 impl SelectionMergeStatement {
@@ -584,9 +678,7 @@ mod test {
         let root = Root::cast(syntax).unwrap();
         let stmt = root.stmts().next().unwrap();
         let variable_expr = match stmt {
-            Stmt::Expr(Expr::VariableExpr(variable_expr)) => {
-                variable_expr
-            }
+            Stmt::Expr(Expr::VariableExpr(variable_expr)) => variable_expr,
             _ => panic!("Expected variable definition"),
         };
         assert_eq!(variable_expr.ty_name().unwrap().text(), expected_name);
@@ -594,7 +686,7 @@ mod test {
     }
 
     #[test]
-    fn check_skip_ignored_instructions(){
+    fn check_skip_ignored_instructions() {
         let input = "OpCapability Shader
         OpMemoryModel Logical GLSL450
         OpEntryPoint Fragment %main \"main\" %frag_color
@@ -612,25 +704,47 @@ mod test {
         let root = Root::cast(syntax).unwrap();
         let stmt = root.stmts().next().unwrap();
         let execution_mode_stmt = match stmt {
-            Stmt::ExecutionMode(exec_mode) => {
-                exec_mode
-            }
+            Stmt::ExecutionMode(exec_mode) => exec_mode,
             _ => panic!("Expected execution mode statement, but got {:#?}", stmt),
         };
-        assert_eq!(execution_mode_stmt.local_size_x().unwrap().text().parse::<u32>(), Ok(256));
-        assert_eq!(execution_mode_stmt.local_size_y().unwrap().text().parse::<u32>(), Ok(1));
-        assert_eq!(execution_mode_stmt.local_size_z().unwrap().text().parse::<u32>(), Ok(1));
+        assert_eq!(
+            execution_mode_stmt
+                .local_size_x()
+                .unwrap()
+                .text()
+                .parse::<u32>(),
+            Ok(256)
+        );
+        assert_eq!(
+            execution_mode_stmt
+                .local_size_y()
+                .unwrap()
+                .text()
+                .parse::<u32>(),
+            Ok(1)
+        );
+        assert_eq!(
+            execution_mode_stmt
+                .local_size_z()
+                .unwrap()
+                .text()
+                .parse::<u32>(),
+            Ok(1)
+        );
 
-        let opdecor_stmt = match root.stmts().nth(1).unwrap(){
+        let opdecor_stmt = match root.stmts().nth(1).unwrap() {
             Stmt::DecorateStatement(decorate_stmt) => decorate_stmt,
             _ => panic!("Expected decorate statement"),
         };
         assert_eq!(opdecor_stmt.name().unwrap().text(), "%subgroup_size");
-        assert_eq!(opdecor_stmt.built_in_var().unwrap().kind(), TokenKind::SubgroupSize);
+        assert_eq!(
+            opdecor_stmt.built_in_var().unwrap().kind(),
+            TokenKind::SubgroupSize
+        );
     }
 
     #[test]
-    fn check_skipped_token(){
+    fn check_skipped_token() {
         let input = "; SPIR-V
         ; Version: 1.0
         ; Generator: Khronos Glslang Reference Front End; 11
@@ -641,12 +755,16 @@ mod test {
         let root = Root::cast(syntax).unwrap();
         let stmt = root.stmts().next().unwrap();
         let decorate_stmt = match stmt {
-            Stmt::DecorateStatement(decorate_stmt) => {
-                decorate_stmt
-            }
+            Stmt::DecorateStatement(decorate_stmt) => decorate_stmt,
             _ => panic!("Expected decorate statement, but got {:#?}", stmt),
         };
-        assert_eq!(decorate_stmt.name().unwrap().text(), "%gl_SubgroupInvocationID");
-        assert_eq!(decorate_stmt.built_in_var().unwrap().kind(), TokenKind::SubgroupLocalInvocationId);
+        assert_eq!(
+            decorate_stmt.name().unwrap().text(),
+            "%gl_SubgroupInvocationID"
+        );
+        assert_eq!(
+            decorate_stmt.built_in_var().unwrap().kind(),
+            TokenKind::SubgroupLocalInvocationId
+        );
     }
 }

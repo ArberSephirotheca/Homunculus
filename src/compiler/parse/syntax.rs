@@ -35,7 +35,7 @@ pub enum LexingError {
 // }
 
 /// This set is used to distinguish between instructions that are not supported by the parser and the ones that are ignored
-pub(crate) const IGNORED_INSTRUCTION_SET: [TokenKind; 11] = [
+pub(crate) static IGNORED_INSTRUCTION_SET: [TokenKind; 14] = [
     TokenKind::OpMemberDecorate,
     TokenKind::OpCapability,
     TokenKind::OpExtension,
@@ -48,9 +48,13 @@ pub(crate) const IGNORED_INSTRUCTION_SET: [TokenKind; 11] = [
     TokenKind::OpName,
     TokenKind::OpMemberName,
     TokenKind::OpMemberDecorate,
+    TokenKind::OpTypeFunction,
+    TokenKind::OpFunction,
+    TokenKind::OpFunctionEnd,
+    // TokenKind::OpConstantComposite,
 ];
 
-pub(crate) const BUILT_IN_VARIABLE_SET : [TokenKind; 9] = [
+pub(crate) static BUILT_IN_VARIABLE_SET: [TokenKind; 9] = [
     TokenKind::NumWorkgroups,
     TokenKind::WorkgroupSize,
     TokenKind::WorkgroupId,
@@ -97,19 +101,22 @@ pub enum TokenKind {
     SelectionMergeStatement,
 
     // Expression
-    FunctionExpr,
+    // FunctionExpr,
     VariableExpr,
     AccessChainExpr,
     LabelExpr,
     ConstantExpr,
-    ConstantCompositeExpr,
+    // ConstantCompositeExpr,
     ConstantTrueExpr,
     ConstantFalseExpr,
     LoadExpr,
+    AddExpr,
+    SubExpr,
+    MulExpr,
     EqualExpr,
     NotEqualExpr,
     GreaterThanExpr,
-    GreaterEqualThanExpr,
+    GreaterThanEqualExpr,
     LessThanExpr,
     LessThanEqualExpr,
     AtomicExchangeExpr,
@@ -118,6 +125,8 @@ pub enum TokenKind {
     // Type expression
     TypeBoolExpr,
     TypeIntExpr,
+    TypeVoidExpr,
+    TypeFunctionExpr,
     TypeVectorExpr,
     TypeArrayExpr,
     TypeRuntimeArrayExpr,
@@ -205,7 +214,7 @@ pub enum TokenKind {
     // OpMemberName is the member name in the layout
     #[regex("OpMemberName")]
     OpMemberName,
-    #[regex("OpFUnction")]
+    #[regex("OpFunction")]
     OpFunction,
     #[regex("OpFunctionEnd")]
     OpFunctionEnd,
@@ -227,20 +236,24 @@ pub enum TokenKind {
     OpLabel,
     #[regex("OpReturn")]
     OpReturn,
-    #[regex("OpKill")]
-    OpKill,
     #[regex("OpLoad")]
     OpLoad,
     #[regex("OpStore")]
     OpStore,
     #[regex("OpConstant")]
     OpConstant,
-    #[regex("OpConstantComposite")]
-    OpConstantComposite,
+    // #[regex("OpConstantComposite")]
+    // OpConstantComposite,
     #[regex("OpConstantTrue")]
     OpConstantTrue,
     #[regex("OpConstantFalse")]
     OpConstantFalse,
+    #[regex("OpIAdd")]
+    OpIAdd,
+    #[regex("OpISub")]
+    OpISub,
+    #[regex("OpIMul")]
+    OpIMul,
     #[regex("OpIEqual")]
     OpIEqual,
     #[regex("OpINotEqual")]
@@ -361,7 +374,6 @@ impl fmt::Display for TokenKind {
             Self::OpAccessChain => "OpAccessChain",
             Self::OpLabel => "OpLabel",
             Self::OpReturn => "OpReturn",
-            Self::OpKill => "OpKill",
             Self::OpLoad => "OpLoad",
             Self::OpStore => "OpStore",
             Self::OpConstant => "OpConstant",
@@ -380,7 +392,7 @@ impl fmt::Display for TokenKind {
             Self::OpAtomicCompareExchange => "OpAtomicCompareExchange",
             Self::OpGroupAll => "OpGroupAll",
             Self::OpVariable => "OpVariable",
-            Self::OpConstantComposite => "OpConstantComposite",
+            // Self::OpConstantComposite => "OpConstantComposite",
             Self::OpDecorate => "OpDecorate",
             Self::OpTypeBool => "OpTypeBool",
             Self::OpTypeInt => "OpTypeInt",

@@ -7,23 +7,24 @@ use crate::compiler::{
 };
 use smallvec::SmallVec;
 
-// #[derive(Debug)]
-// pub enum BuiltInVariable {
-//     NumWorkgroups,
-//     WorkgroupSize,
-//     WorkgroupId,
-//     LocalInvocationId,
-//     GlobalInvocationId,
-//     SubgroupSize,
-//     NumSubgroups,
-//     SubgroupId,
-//     SubgroupLocalInvocationId,
-//     // There are more built-in variables, but currently we only support these
-// }
+#[derive(Debug)]
+pub enum BinaryExpr {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    NotEqual,
+    Equal,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum InstructionName {
     Assignment,
+    Return,
     Load,
     Store,
     Branch,
@@ -31,6 +32,16 @@ pub enum InstructionName {
     Label,
     SelectionMerge,
     LoopMerge,
+    AtomicExchange,
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanEqual,
+    GreaterThan,
+    GreaterThanEqual,
+    Add,
+    Sub,
+    Mul,
 }
 
 #[derive(Debug, PartialEq)]
@@ -49,11 +60,12 @@ impl VariableScope {
             StorageClass::Local => VariableScope::Local,
             StorageClass::Shared => VariableScope::Shared,
             StorageClass::Intermediate => VariableScope::Intermediate,
+            StorageClass::Constant => VariableScope::Literal,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InstructionScope {
     // CrossDevice = 0,
     // Device = 1,
@@ -105,7 +117,7 @@ pub enum InstructionValue {
     Pointer(String, VariableInfo),
     BuiltIn(InstructionBuiltInVariable),
     Bool(bool),
-    String(String),
+    // String(String),
     Int(i32),
     UInt(u32),
 }
@@ -135,7 +147,6 @@ pub struct InstructionArgument {
 pub struct InstructionArguments {
     pub name: InstructionName,
     pub num_args: u32,
-    pub scope: InstructionScope,
     pub arguments: SmallVec<[InstructionArgument; 4]>,
 }
 
@@ -143,6 +154,7 @@ pub struct InstructionArguments {
 pub struct Instruction {
     pub position: u32,
     pub name: InstructionName,
+    pub scope: InstructionScope,
     pub arguments: InstructionArguments,
 }
 

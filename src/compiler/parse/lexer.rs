@@ -31,7 +31,7 @@ impl<'t> Iterator for Lexer<'t> {
     type Item = Token<'t>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let kind = match self.inner.next()?{
+        let kind = match self.inner.next()? {
             Ok(kind) => kind,
             Err(_) => panic!("Error: unexpected token at {:?}", self.inner.span()),
         };

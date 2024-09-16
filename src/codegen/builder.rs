@@ -117,7 +117,6 @@ impl InstructionArguments {
 pub struct InstructionArgumentsBuilder {
     name: Option<InstructionName>,
     num_args: Option<u32>,
-    scope: Option<InstructionScope>,
     arguments: SmallVec<[InstructionArgument; 4]>,
 }
 
@@ -131,21 +130,12 @@ impl InstructionArgumentsBuilder {
         self
     }
 
-    pub fn scope(mut self, scope: InstructionScope) -> Self {
-        self.scope = Some(scope);
-        self
-    }
-
     pub fn get_name(&self) -> Option<InstructionName> {
         self.name
     }
 
     pub fn get_num_args(&self) -> Option<u32> {
         self.num_args
-    }
-
-    pub fn get_scope(&self) -> Option<InstructionScope> {
-        self.scope
     }
 
     pub fn push_argument(mut self, argument: InstructionArgument) -> Self {
@@ -161,9 +151,6 @@ impl InstructionArgumentsBuilder {
             num_args: self
                 .num_args
                 .ok_or_else(|| eyre!("Number of arguments is required"))?,
-            scope: self
-                .scope
-                .ok_or_else(|| eyre!("Instruction scope is required"))?,
             arguments: self.arguments,
         })
     }
@@ -179,6 +166,7 @@ impl Instruction {
 pub struct InstructionBuilder {
     position: Option<u32>,
     name: Option<InstructionName>,
+    scope: Option<InstructionScope>,
     arguments: Option<InstructionArguments>,
 }
 
@@ -198,10 +186,18 @@ impl InstructionBuilder {
         self
     }
 
+    pub fn scope(mut self, scope: InstructionScope) -> Self {
+        self.scope = Some(scope);
+        self
+    }
+
     pub fn build(self) -> Result<Instruction> {
         Ok(Instruction {
             position: self.position.ok_or_else(|| eyre!("Position is required"))?,
             name: self.name.ok_or_else(|| eyre!("Name is required"))?,
+            scope: self
+                .scope
+                .ok_or_else(|| eyre!("Instruction scope is required"))?,
             arguments: self
                 .arguments
                 .ok_or_else(|| eyre!("Arguments are required"))?,
@@ -285,6 +281,11 @@ impl ProgramBuilder {
 
     pub fn push_instruction(mut self, instruction: Instruction) -> Self {
         self.instructions.push(instruction);
+        self
+    }
+
+    pub(crate) fn push_vec_instructions(mut self, instructions: Vec<Instruction>) -> Self {
+        self.instructions.extend(instructions);
         self
     }
 

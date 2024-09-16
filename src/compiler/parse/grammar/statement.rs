@@ -1,23 +1,36 @@
 use crate::compiler::parse::{
-    event::Event, lexer::Token, marker::CompletedMarker, parser::{Parse, Parser}, symbol_table::*, syntax::{TokenKind, BUILT_IN_VARIABLE_SET, IGNORED_INSTRUCTION_SET}
+    event::Event,
+    lexer::Token,
+    marker::CompletedMarker,
+    parser::{Parse, Parser},
+    symbol_table::*,
+    syntax::{TokenKind, BUILT_IN_VARIABLE_SET, IGNORED_INSTRUCTION_SET},
 };
 
 pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
     if p.at(TokenKind::Ident) {
         variable_def(p)
-    } else if p.at(TokenKind::OpExecutionMode){
+    } else if p.at(TokenKind::OpExecutionMode) {
         op_execution_mode_stmt(p)
     } else if p.at(TokenKind::OpDecorate) {
         op_decorate_stmt(p)
-    } else if p.at(TokenKind::OpFunction) {
-        Some(op_function_expr(p))
-    } else if p.at(TokenKind::OpFunctionEnd) {
-        Some(op_function_end_statement(p))
-    } else if p.at(TokenKind::OpTypeInt) {
+    }
+    // else if p.at(TokenKind::OpFunction) {
+    //     Some(op_function_expr(p))
+    // } else if p.at(TokenKind::OpFunctionEnd) {
+    //     Some(op_function_end_statement(p))
+    // }
+    else if p.at(TokenKind::OpTypeInt) {
         Some(op_type_int_expr(p))
     } else if p.at(TokenKind::OpTypeBool) {
         Some(op_type_bool_expr(p))
-    } else if p.at(TokenKind::OpTypeVector) {
+    } else if p.at(TokenKind::OpTypeVoid) {
+        Some(op_type_void_expr(p))
+    }
+    // else if p.at(TokenKind::OpTypeFunction) {
+    //     Some(op_type_function_expr(p))
+    // }
+    else if p.at(TokenKind::OpTypeVector) {
         Some(op_type_vector_expr(p))
     } else if p.at(TokenKind::OpTypeArray) {
         Some(op_type_array_expr(p))
@@ -35,9 +48,11 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
         Some(op_label_expr(p))
     } else if p.at(TokenKind::OpConstant) {
         Some(op_constant_expr(p))
-    } else if p.at(TokenKind::OpConstantComposite) {
-        Some(op_constant_composite_expr(p))
-    } else if p.at(TokenKind::OpConstantTrue) {
+    }
+    //  else if p.at(TokenKind::OpConstantComposite) {
+    //     Some(op_constant_composite_expr(p))
+    // }
+    else if p.at(TokenKind::OpConstantTrue) {
         Some(op_constant_true_expr(p))
     } else if p.at(TokenKind::OpConstantFalse) {
         Some(op_constant_false_expr(p))
@@ -59,6 +74,12 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
         Some(op_less_than_expr(p))
     } else if p.at(TokenKind::OpSLessThanEqual) {
         Some(op_less_than_equal_expr(p))
+    } else if p.at(TokenKind::OpIAdd) {
+        Some(op_add_expr(p))
+    } else if p.at(TokenKind::OpISub) {
+        Some(op_sub_expr(p))
+    } else if p.at(TokenKind::OpIMul) {
+        Some(op_mul_expr(p))
     } else if p.at(TokenKind::OpAtomicExchange) {
         Some(op_atomic_exchange_expr(p))
     } else if p.at(TokenKind::OpAtomicCompareExchange) {
@@ -71,27 +92,26 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
         Some(op_loop_merge_statement(p))
     } else if p.at(TokenKind::OpSelectionMerge) {
         Some(op_selection_merge_statement(p))
-    }// else if p.at(TokenKind::OpSwitch){
+    }
+    // else if p.at(TokenKind::OpSwitch){
     //     Some(op_switch_statement(p))
     // }
     else if p.at(TokenKind::OpAtomicExchange) {
         Some(op_atomic_exchange_expr(p))
     } else if p.at(TokenKind::OpAtomicCompareExchange) {
         Some(op_atomic_compare_exchange_expr(p))
-    } else if p.at_set(&IGNORED_INSTRUCTION_SET){
+    } else if p.at_set(&IGNORED_INSTRUCTION_SET) {
         skip_ignored_op(p)
-    }
-    else {
+    } else {
         // todo: add more info
         panic!("unexpected token {:?}", p.peek());
     }
 }
 
-
 /// skip ignored instructions
-fn skip_ignored_op(p: &mut Parser) -> Option<CompletedMarker>{
+fn skip_ignored_op(p: &mut Parser) -> Option<CompletedMarker> {
     let m = p.start();
-    while ! p.at(TokenKind::Newline) {
+    while !p.at(TokenKind::Newline) {
         p.bump();
     }
     p.expect(TokenKind::Newline);
@@ -114,7 +134,7 @@ fn op_execution_mode_stmt(p: &mut Parser) -> Option<CompletedMarker> {
         p.expect(TokenKind::Newline);
         Some(m.complete(p, TokenKind::ExecutionModeStatement))
     } else {
-        while ! p.at(TokenKind::Newline) {
+        while !p.at(TokenKind::Newline) {
             p.bump();
         }
         p.expect(TokenKind::Newline);
@@ -140,8 +160,7 @@ fn op_decorate_stmt(p: &mut Parser) -> Option<CompletedMarker> {
         return None;
     }
 
-    if p.at_set(&BUILT_IN_VARIABLE_SET)
-    {
+    if p.at_set(&BUILT_IN_VARIABLE_SET) {
         p.bump();
     } else {
         p.error();
@@ -151,24 +170,24 @@ fn op_decorate_stmt(p: &mut Parser) -> Option<CompletedMarker> {
 }
 
 /// example: OpFunction %void None %1
-fn op_function_expr(p: &mut Parser) -> CompletedMarker {
-    let m = p.start();
-    // skip OpFunction token
-    p.bump();
-    p.expect(TokenKind::Ident);
-    if p.at(TokenKind::OpTypeBool)
-        || p.at(TokenKind::OpTypeInt)
-        || p.at(TokenKind::OpTypeBool)
-        || p.at(TokenKind::OpTypeVoid)
-    {
-        p.bump();
-    } else {
-        p.error();
-    }
-    p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Newline);
-    m.complete(p, TokenKind::FunctionExpr)
-}
+// fn op_function_expr(p: &mut Parser) -> CompletedMarker {
+//     let m = p.start();
+//     // skip OpFunction token
+//     p.bump();
+//     p.expect(TokenKind::Ident);
+//     if p.at(TokenKind::OpTypeBool)
+//         || p.at(TokenKind::OpTypeInt)
+//         || p.at(TokenKind::OpTypeBool)
+//         || p.at(TokenKind::OpTypeVoid)
+//     {
+//         p.bump();
+//     } else {
+//         p.error();
+//     }
+//     p.expect(TokenKind::Ident);
+//     p.expect(TokenKind::Newline);
+//     m.complete(p, TokenKind::FunctionExpr)
+// }
 
 /// example: OpFunctionEnd
 fn op_function_end_statement(p: &mut Parser) -> CompletedMarker {
@@ -196,6 +215,27 @@ fn op_type_bool_expr(p: &mut Parser) -> CompletedMarker {
     p.bump();
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::TypeBoolExpr)
+}
+
+/// example OpTypeVoid
+fn op_type_void_expr(p: &mut Parser) -> CompletedMarker {
+    let m = p.start();
+    // skip OpTypeVoid token
+    p.bump();
+    p.expect(TokenKind::Newline);
+    m.complete(p, TokenKind::TypeVoidExpr)
+}
+
+/// fixme: support arguments
+/// example OpTypeFunction %void
+fn op_type_function_expr(p: &mut Parser) -> CompletedMarker {
+    let m = p.start();
+    // skip OpTypeFunction token
+    p.bump();
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Newline);
+    m.complete(p, TokenKind::TypeFunctionExpr)
 }
 
 /// example OpTypeVector %uint 3
@@ -318,22 +358,22 @@ fn op_constant_expr(p: &mut Parser) -> CompletedMarker {
 }
 
 /// example: OpConstantComposite %v3uint %uint_256 %uint_1 %uint_1
-fn op_constant_composite_expr(p: &mut Parser) -> CompletedMarker {
-    let m = p.start();
-    // skip OpConstantComposite token
-    p.bump();
-    // p.expect(TokenKind::Percent);
-    p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Int);
-    // p.expect(TokenKind::Percent);
-    p.expect(TokenKind::Ident);
-    // p.expect(TokenKind::Percent);
-    p.expect(TokenKind::Ident);
-    // p.expect(TokenKind::Percent);
-    p.expect(TokenKind::Ident);
-    p.expect(TokenKind::Newline);
-    m.complete(p, TokenKind::ConstantCompositeExpr)
-}
+// fn op_constant_composite_expr(p: &mut Parser) -> CompletedMarker {
+//     let m = p.start();
+//     // skip OpConstantComposite token
+//     p.bump();
+//     // p.expect(TokenKind::Percent);
+//     p.expect(TokenKind::Ident);
+//     p.expect(TokenKind::Int);
+//     // p.expect(TokenKind::Percent);
+//     p.expect(TokenKind::Ident);
+//     // p.expect(TokenKind::Percent);
+//     p.expect(TokenKind::Ident);
+//     // p.expect(TokenKind::Percent);
+//     p.expect(TokenKind::Ident);
+//     p.expect(TokenKind::Newline);
+//     m.complete(p, TokenKind::ConstantCompositeExpr)
+// }
 
 /// example: OpConstantTrue %bool
 fn op_constant_true_expr(p: &mut Parser) -> CompletedMarker {
@@ -386,6 +426,7 @@ fn op_load_expr(p: &mut Parser) -> CompletedMarker {
 }
 
 /// example: OpStore %arrayidx2 %add Aligned 4
+/// example: OpStore %9 %3
 fn op_store_statement(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpStore token
@@ -461,7 +502,7 @@ fn op_greater_than_equal_expr(p: &mut Parser) -> CompletedMarker {
     // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
-    m.complete(p, TokenKind::GreaterEqualThanExpr)
+    m.complete(p, TokenKind::GreaterThanEqualExpr)
 }
 
 /// example: OpSLessThan %bool %call %num_elements
@@ -492,6 +533,51 @@ fn op_less_than_equal_expr(p: &mut Parser) -> CompletedMarker {
     p.expect(TokenKind::Ident);
     p.expect(TokenKind::Newline);
     m.complete(p, TokenKind::LessThanEqualExpr)
+}
+
+/// example: OpIAdd %int %int_0 %int_1
+fn op_add_expr(p: &mut Parser) -> CompletedMarker {
+    let m = p.start();
+    // skip OpIAdd token
+    p.bump();
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Newline);
+    m.complete(p, TokenKind::AddExpr)
+}
+
+/// example: OpISub %int %int_0 %int_1
+fn op_sub_expr(p: &mut Parser) -> CompletedMarker {
+    let m = p.start();
+    // skip OpISub token
+    p.bump();
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Newline);
+    m.complete(p, TokenKind::SubExpr)
+}
+
+/// example: OpIMul %int %int_0 %int_1
+fn op_mul_expr(p: &mut Parser) -> CompletedMarker {
+    let m = p.start();
+    // skip OpIMul token
+    p.bump();
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    // p.expect(TokenKind::Percent);
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Newline);
+    m.complete(p, TokenKind::MulExpr)
 }
 
 /// example: OpBranchConditional %cmp_not %if_end %if_then
@@ -551,7 +637,7 @@ fn op_selection_merge_statement(p: &mut Parser) -> CompletedMarker {
     m.complete(p, TokenKind::SelectionMergeStatement)
 }
 
-/// example: OpAtomicCompareExchange %uint %result %result_ptr 1 0 %value
+/// example: OpAtomicExchange %uint %result %result_ptr %uint_0 %value
 fn op_atomic_exchange_expr(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     // skip OpAtomicExchange token
@@ -565,12 +651,13 @@ fn op_atomic_exchange_expr(p: &mut Parser) -> CompletedMarker {
     // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
 
-    p.expect(TokenKind::Int);
+    // p.expect(TokenKind::Ident);
 
-    p.expect(TokenKind::Int);
+    p.expect(TokenKind::Ident);
 
     // p.expect(TokenKind::Percent);
     p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Newline);
 
     m.complete(p, TokenKind::AtomicExchangeExpr)
 }
@@ -616,8 +703,7 @@ fn variable_def(p: &mut Parser) -> Option<CompletedMarker> {
         println!("stmt is none");
         m.complete(p, TokenKind::IgnoredOp);
         None
-    }else{
+    } else {
         Some(m.complete(p, TokenKind::VariableDef))
     }
-    
 }

@@ -5,7 +5,7 @@
 //! for variable table, we have a struct SymbolTable with a method insert and lookup
 //! Whenever we encounter a variable declaration (e.g. `OpVariable`), we add it to the variable table
 use super::syntax::TokenKind;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 type VariableSymbol = String;
 type TypeSymbol = String;
 type ConstantSymbol = String;
@@ -25,6 +25,18 @@ pub(crate) enum StorageClass {
     Intermediate,
     // This is for constant variables
     Constant,
+}
+
+impl fmt::Display for StorageClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StorageClass::Global => write!(f, "global"),
+            StorageClass::Shared => write!(f, "shared"),
+            StorageClass::Local => write!(f, "local"),
+            StorageClass::Intermediate => write!(f, "intermediate"),
+            StorageClass::Constant => write!(f, "constant"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -62,9 +74,6 @@ impl BuiltInVariable {
 /// for low level type like int and bool, we store the type directly
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum SpirvType {
-    // BuiltIn {
-    //     built_in: BuiltInVariable,
-    // },
     Void,
     Function {
         return_type: TypeSymbol,
@@ -99,6 +108,16 @@ pub(crate) enum SpirvType {
     // },
 }
 
+impl SpirvType {
+    pub fn default_value(&self) -> ConstantInfo {
+        match self {
+            SpirvType::Bool => ConstantInfo::new_bool(false),
+            SpirvType::Int { signed, .. } => ConstantInfo::new_int(-1, *signed),
+            _ => panic!("No default value for type {:?}", self),
+        }
+    }
+}
+
 /// each time we encounter a constant declaration, we add it to the constant table
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum ConstantInfo {
@@ -117,6 +136,12 @@ pub(crate) enum ConstantInfo {
 }
 
 impl ConstantInfo {
+    pub(crate) fn to_text(&self) -> String {
+        match self {
+            ConstantInfo::Int { value, .. } => value.to_string(),
+            ConstantInfo::Bool { value } => value.to_string(),
+        }
+    }
     pub fn new_int(value: i32, signed: bool) -> Self {
         Self::Int {
             width: 32,
@@ -246,12 +271,16 @@ impl VariableInfo {
         self.storage_class.clone()
     }
 
-    // pub fn get_index(&self) -> i32 {
-    //     match &self.ty {
-    //         SpirvType::AccessChain { ty, base, index } => index.parse().unwrap(),
-    //         _ => -1,
-    //     }
-    // }
+    pub(crate) fn initial_value(&self) -> ConstantInfo {
+        self.ty.default_value()
+    }
+
+    // FIXME: implement array and struct
+    pub(crate) fn get_index(&self) -> i32 {
+        match &self.ty {
+            _ => -1,
+        }
+    }
     pub(crate) fn is_intermediate(&self) -> bool {
         if self.get_storage_class() == StorageClass::Intermediate {
             true

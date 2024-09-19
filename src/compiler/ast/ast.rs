@@ -32,13 +32,16 @@ pub struct FuncStatement(SyntaxNode);
 pub struct VariableExpr(SyntaxNode);
 #[derive(Debug)]
 pub struct TypeExpr(SyntaxNode);
-
 #[derive(Debug)]
 pub struct LabelExpr(SyntaxNode);
 #[derive(Debug, ResultType)]
 pub struct LoadExpr(SyntaxNode);
+#[derive(Debug, ResultType)]
+pub struct AtomicLoadExpr(SyntaxNode);
 #[derive(Debug)]
 pub struct StoreStatement(SyntaxNode);
+#[derive(Debug)]
+pub struct AtomicStoreStatement(SyntaxNode);
 #[derive(Debug, ResultType)]
 pub struct ConstExpr(SyntaxNode);
 #[derive(Debug, ResultType)]
@@ -92,6 +95,7 @@ pub enum Expr {
     VariableRef(VariableRef),
     LabelExpr(LabelExpr),
     LoadExpr(LoadExpr),
+    AtomicLoadExpr(AtomicLoadExpr),
     ConstExpr(ConstExpr),
     ConstTrueExpr(ConstTrueExpr),
     ConstFalseExpr(ConstFalseExpr),
@@ -114,6 +118,7 @@ pub enum Stmt {
     DecorateStatement(DecorateStatement),
     VariableDef(VariableDef),
     StoreStatement(StoreStatement),
+    AtomicStoreStatement(AtomicStoreStatement),
     FuncStatement(FuncStatement),
     ReturnStatement(ReturnStatement),
     BranchConditionalStatement(BranchConditionalStatement),
@@ -151,6 +156,7 @@ impl Expr {
             TokenKind::AccessChainExpr => Some(Self::VariableRef(VariableRef(node))),
             TokenKind::LabelExpr => Some(Self::LabelExpr(LabelExpr(node))),
             TokenKind::LoadExpr => Some(Self::LoadExpr(LoadExpr(node))),
+            TokenKind::AtomicLoadExpr => Some(Self::AtomicLoadExpr(AtomicLoadExpr(node))),
             TokenKind::ConstantExpr => Some(Self::ConstExpr(ConstExpr(node))),
             // TokenKind::ConstantCompositeExpr => Some(Self::ConstExpr(ConstExpr(node))),
             TokenKind::ConstantTrueExpr => Some(Self::ConstTrueExpr(ConstTrueExpr(node))),
@@ -161,14 +167,12 @@ impl Expr {
             TokenKind::EqualExpr => Some(Self::EqualExpr(EqualExpr(node))),
             TokenKind::NotEqualExpr => Some(Self::NotEqualExpr(NotEqualExpr(node))),
             TokenKind::GreaterThanExpr => Some(Self::GreaterThanExpr(GreaterThanExpr(node))),
-            TokenKind::GreaterThanEqualExpr => {
-                Some(Self::GreaterThanEqualExpr(GreaterThanEqualExpr(node)))
-            }
+            TokenKind::GreaterThanEqualExpr => Some(Self::GreaterThanEqualExpr(GreaterThanEqualExpr(node))),
+            
             TokenKind::LessThanExpr => Some(Self::LessThanExpr(LessThanExpr(node))),
             TokenKind::LessThanEqualExpr => Some(Self::LessThanEqualExpr(LessThanEqualExpr(node))),
-            TokenKind::AtomicExchangeExpr => {
-                Some(Self::AtomicExchangeExpr(AtomicExchangeExpr(node)))
-            }
+            TokenKind::AtomicExchangeExpr => Some(Self::AtomicExchangeExpr(AtomicExchangeExpr(node))),
+            
             TokenKind::AtomicCompareExchangeExpr => Some(Self::AtomicCompareExchangeExpr(
                 AtomicCompareExchangeExpr(node),
             )),
@@ -186,7 +190,7 @@ impl Stmt {
             TokenKind::VariableDef => Some(Self::VariableDef(VariableDef(node))),
             TokenKind::ReturnStatement => Some(Self::ReturnStatement(ReturnStatement(node))),
             TokenKind::StoreStatement => Some(Self::StoreStatement(StoreStatement(node))),
-
+            TokenKind::AtomicStoreStatement => Some(Self::AtomicStoreStatement(AtomicStoreStatement(node))),
             TokenKind::BranchConditionalStatement => Some(Self::BranchConditionalStatement(
                 BranchConditionalStatement(node),
             )),
@@ -392,6 +396,27 @@ impl LoadExpr {
     }
 }
 
+impl AtomicLoadExpr {
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+
+    pub(crate) fn ty(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
+
+    pub(crate) fn pointer(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|token| token.kind() == TokenKind::Ident)
+            .nth(1)
+    }
+}
+
 impl StoreStatement {
     pub(crate) fn expr(&self) -> Option<Expr> {
         self.0.children().find_map(Expr::cast)
@@ -410,6 +435,27 @@ impl StoreStatement {
             .filter(|token| token.kind() == TokenKind::Ident)
             .nth(1)
     }
+}
+
+impl AtomicStoreStatement{
+    pub(crate) fn expr(&self) -> Option<Expr> {
+        self.0.children().find_map(Expr::cast)
+    }
+
+    pub(crate) fn pointer(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .find(|x| x.kind() == TokenKind::Ident)
+    }
+
+    pub(crate) fn value(&self) -> Option<SyntaxToken> {
+        self.0
+            .children_with_tokens()
+            .filter_map(|x| x.into_token())
+            .filter(|token| token.kind() == TokenKind::Ident)
+            .nth(3)
+    } 
 }
 
 impl ConstExpr {

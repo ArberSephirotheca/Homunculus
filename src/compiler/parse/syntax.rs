@@ -94,6 +94,7 @@ pub enum TokenKind {
     ReturnStatement,
     FunctionEndStatement,
     StoreStatement,
+    AtomicStoreStatement,
 
     // merge instruction
     LoopMergeStatement,
@@ -109,6 +110,7 @@ pub enum TokenKind {
     ConstantTrueExpr,
     ConstantFalseExpr,
     LoadExpr,
+    AtomicLoadExpr,
     AddExpr,
     SubExpr,
     MulExpr,
@@ -239,6 +241,10 @@ pub enum TokenKind {
     OpLoad,
     #[regex("OpStore")]
     OpStore,
+    #[regex("OpAtomicLoad")]
+    OpAtomicLoad,
+    #[regex("OpAtomicStore")]
+    OpAtomicStore,
     #[regex("OpConstant")]
     OpConstant,
     // #[regex("OpConstantComposite")]
@@ -375,6 +381,8 @@ impl fmt::Display for TokenKind {
             Self::OpReturn => "OpReturn",
             Self::OpLoad => "OpLoad",
             Self::OpStore => "OpStore",
+            Self::OpAtomicLoad => "OpAtomicLoad",
+            Self::OpAtomicStore => "OpAtomicStore",
             Self::OpConstant => "OpConstant",
             Self::OpIEqual => "OpIEqual",
             Self::OpINotEqual => "OpINotEqual",

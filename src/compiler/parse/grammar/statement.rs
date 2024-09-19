@@ -62,6 +62,10 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
         Some(op_load_expr(p))
     } else if p.at(TokenKind::OpStore) {
         Some(op_store_statement(p))
+    } else if p.at(TokenKind::OpAtomicLoad){
+        Some(op_atomic_load_expr(p))
+    } else if p.at(TokenKind::OpAtomicStore){
+        Some(op_atomic_store_statement(p))
     } else if p.at(TokenKind::OpIEqual) {
         Some(op_equal_expr(p))
     } else if p.at(TokenKind::OpINotEqual) {
@@ -443,6 +447,32 @@ fn op_store_statement(p: &mut Parser) -> CompletedMarker {
         p.expect(TokenKind::Newline);
     }
     m.complete(p, TokenKind::StoreStatement)
+}
+
+/// example: OpAtomicLoad %uint %ptr %uint_0 %uint_1
+fn op_atomic_load_expr(p: &mut Parser) -> CompletedMarker {
+    let m = p.start();
+
+    p.bump();
+
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Ident);
+    m.complete(p, TokenKind::AtomicLoadExpr)
+}
+
+/// example: OpAtomicStore %4 %uint_0 %uint_1 %val
+fn op_atomic_store_statement(p: &mut Parser) -> CompletedMarker {
+    let m = p.start();
+
+    p.bump();
+
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Ident);
+    p.expect(TokenKind::Ident);
+    m.complete(p, TokenKind::AtomicStoreStatement)
 }
 
 /// example: %cmp = OpIEqual %bool %call %num_elements

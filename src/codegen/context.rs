@@ -358,6 +358,14 @@ impl CodegenCx {
                 self.insert_variable(var_name.clone(), pointer_info.clone());
                 self.increment_inst_position();
             }
+            Expr::AtomicLoadExpr(atomic_load_expr) => {
+                // fixme: better error handling
+                let pointer_ssa_id = atomic_load_expr.pointer().unwrap();
+                let pointer_info = self.lookup_variable(pointer_ssa_id.text()).unwrap();
+
+                self.insert_variable(var_name.clone(), pointer_info.clone());
+                self.increment_inst_position();
+            }
             // fixme: consider memory scope in the future
             Expr::AtomicExchangeExpr(atomic_exch_expr) => {
                 let result_type = atomic_exch_expr.result_type().unwrap();
@@ -411,6 +419,22 @@ impl CodegenCx {
             // fixme:: does not support OpAccesschain yet
             Stmt::StoreStatement(store_stmt) => {
                 let pointer_ssa_id = store_stmt.pointer().unwrap();
+                let pointer_info = self.lookup_variable(pointer_ssa_id.text()).unwrap();
+
+                self.insert_variable(pointer_ssa_id.text().to_string(), pointer_info.clone());
+
+                self.increment_inst_position();
+            }
+            Stmt::AtomicStoreStatement(atomic_store_stmt) => {
+                let pointer_ssa_id = atomic_store_stmt.pointer().unwrap();
+                let pointer_info = self.lookup_variable(pointer_ssa_id.text()).unwrap();
+
+                self.insert_variable(pointer_ssa_id.text().to_string(), pointer_info.clone());
+
+                self.increment_inst_position();   
+            }
+            Stmt::AtomicStoreStatement(atomic_store_stmt) => {
+                let pointer_ssa_id = atomic_store_stmt.pointer().unwrap();
                 let pointer_info = self.lookup_variable(pointer_ssa_id.text()).unwrap();
 
                 self.insert_variable(pointer_ssa_id.text().to_string(), pointer_info.clone());
@@ -1244,6 +1268,49 @@ impl CodegenCx {
                         .push_argument(pointer),
                 )
             }
+            Expr::AtomicLoadExpr(atomic_load_expr) => {
+                let inst_args_builder = InstructionArguments::builder();
+                let inst_arg1_builder = InstructionArgument::builder();
+                let inst_arg2_builder = InstructionArgument::builder();
+
+                // fixme: better error handling
+                let pointer_ssa_id = atomic_load_expr.pointer().unwrap();
+                let pointer_info = self.lookup_variable(pointer_ssa_id.text()).unwrap();
+
+                // first arg is the pointer to load into
+                let result = inst_arg1_builder
+                    .name(var_name.clone())
+                    // it is intializing a ssa, so the value is None
+                    .value(InstructionValue::None)
+                    .index(IndexKind::Literal(-1))
+                    .scope(VariableScope::Intermediate)
+                    .build()
+                    .unwrap();
+
+                // second arg is the pointer to load from
+                let pointer = inst_arg2_builder
+                    .name(pointer_ssa_id.text().to_string() /* .get_var_name()*/)
+                    .value(if pointer_info.is_builtin() {
+                        InstructionValue::BuiltIn(InstructionBuiltInVariable::cast(
+                            pointer_info.get_builtin().unwrap(),
+                        ))
+                    } else {
+                        // as we are loading from a pointer, the value should be None
+                        InstructionValue::None
+                    })
+                    .index(IndexKind::Literal(-1))
+                    .scope(VariableScope::cast(&pointer_info.get_storage_class()))
+                    .build()
+                    .unwrap();
+
+                Some(
+                    inst_args_builder
+                        .name(InstructionName::AtomicLoad)
+                        .num_args(2)
+                        .push_argument(result)
+                        .push_argument(pointer),
+                )
+            }
             // fixme: consider memory scope in the future
             Expr::AtomicExchangeExpr(atomic_exch_expr) => {
                 let inst_args_builder = InstructionArguments::builder();
@@ -1434,6 +1501,68 @@ impl CodegenCx {
                     Instruction::builder()
                         .arguments(inst_args)
                         .name(InstructionName::Store)
+                        .scope(InstructionScope::None)
+                        .position(self.increment_inst_position())
+                        .build()
+                        .unwrap(),
+                )
+            }
+            // fixme:: does not support OpAccesschain yet
+            Stmt::AtomicStoreStatement(atomic_store_stmt) => {
+                let inst_args_builder = InstructionArguments::builder();
+                let inst_arg1_builder = InstructionArgument::builder();
+                let inst_arg2_builder = InstructionArgument::builder();
+                // fixme: better error handling
+                let pointer_ssa_id = atomic_store_stmt.pointer().unwrap();
+                let pointer_info = self.lookup_variable(pointer_ssa_id.text()).unwrap();
+
+                let value_ssa_id = atomic_store_stmt.value().unwrap();
+
+                self.insert_variable(pointer_ssa_id.text().to_string(), pointer_info.clone());
+
+                // first arg is the pointer to load into
+                let pointer_arg = inst_arg1_builder
+                    .name(pointer_ssa_id.text().to_string())
+                    // it is intializing a ssa, so the value is None
+                    .value(InstructionValue::None)
+                    .index(IndexKind::Literal(-1))
+                    .scope(VariableScope::cast(&pointer_info.get_storage_class()))
+                    .build()
+                    .unwrap();
+
+                let var_info = self.lookup_variable(value_ssa_id.text()).unwrap();
+                let value_arg = if var_info.is_constant() {
+                    inst_arg2_builder
+                        .name(value_ssa_id.text().to_string())
+                        .value(InstructionValue::Int(var_info.get_constant_int()))
+                        .index(IndexKind::Literal(-1))
+                        .scope(VariableScope::Literal)
+                        .build()
+                        .unwrap()
+                } else {
+                    inst_arg2_builder
+                        .name(value_ssa_id.text().to_string())
+                        .value(InstructionValue::Pointer(
+                            var_info.get_var_name(),
+                            var_info.clone(),
+                        ))
+                        .index(IndexKind::Literal(-1))
+                        .scope(VariableScope::cast(&var_info.get_storage_class()))
+                        .build()
+                        .unwrap()
+                };
+
+                let inst_args = inst_args_builder
+                    .name(InstructionName::AtomicStore)
+                    .num_args(2)
+                    .push_argument(pointer_arg)
+                    .push_argument(value_arg)
+                    .build()
+                    .unwrap();
+                Some(
+                    Instruction::builder()
+                        .arguments(inst_args)
+                        .name(InstructionName::AtomicStore)
                         .scope(InstructionScope::None)
                         .position(self.increment_inst_position())
                         .build()
